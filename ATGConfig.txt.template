@@ -1,0 +1,7 @@
+[Data]
+# path where all data (genomes, annotation, etc.) for ATG is stored
+Root = ~/ATGData
+
+[Web]
+# a default destination for web-accessible content, like UCSC Genome Browser tracks
+Directory = ~/public_html
