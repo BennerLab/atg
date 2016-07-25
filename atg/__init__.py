@@ -1,0 +1,1 @@
+from atg import config
