@@ -1,5 +1,5 @@
 pysam
 pybedtools
 ucsc-bedgraphtobigwig
-yaml
 pyyaml
+nose
