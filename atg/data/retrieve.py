@@ -54,7 +54,7 @@ class ATGDataTracker:
     """
 
     def __init__(self):
-        self.data_root = atg.config.settings['Data']['Root']
+        self.data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
         self.genome_path = {}
         for genome, organism in atg.data.genome_hierarchy.items():
             current_genome_path = os.path.join(self.data_root, organism, 'Current', genome)
