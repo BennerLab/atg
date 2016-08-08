@@ -19,6 +19,7 @@ def setup_hub(namespace):
     print('hub:', namespace.name)
     print('genome:', namespace.genome)
     print('path:', namespace.path)
+    print('library:', namespace.library)
     print('multitracks:')
     print('  - default:')
 
@@ -51,6 +52,8 @@ if __name__ == '__main__':
     setup_hub_parser.add_argument('-n', '--name', help="Hub name", default="DEFAULT")
     setup_hub_parser.add_argument('-g', '--genome', help="UCSC genome, e.g. hg38", default="GENOME")
     setup_hub_parser.add_argument('-p', '--path', help="Path for hub output", default="PATH")
+    setup_hub_parser.add_argument('-l', '--library', help="Strand specificity of sequencing library",
+                                  choices=['unstranded', 'rf'], default='rf')
     setup_hub_parser.set_defaults(func=setup_hub)
 
     # New organization of existing bigwig files

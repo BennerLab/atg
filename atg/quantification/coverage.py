@@ -33,8 +33,7 @@ def get_chrom_sizes(genome):
 def get_genome_coverage(filename, scale):
     return pybedtools.BedTool(filename).genome_coverage(bg=True, split=True, scale=scale).sort()
 
-
-class CoverageCalculator:
+class UnstrandedCoverageCalculator:
     def __init__(self, bam_filename):
         self.working_directory = tempfile.TemporaryDirectory()
         self.output_path = self.working_directory.name
@@ -45,9 +44,73 @@ class CoverageCalculator:
             pysam.index(bam_filename)
             self.alignment_file = pysam.AlignmentFile(bam_filename)
 
-        # set up output files
+        self.mapped_read_count = 0
+        self.is_paired = False
+
         self.forward_strand_filename = os.path.join(self.output_path, 'fwd.bam')
+        self.process_reads()
+
+    def process_reads(self):
+        """
+        Create BAM file containing only uniquely mapped reads, necessary prior to bedgraph generation.
+        :return:
+        """
+        forward_strand = pysam.AlignmentFile(self.forward_strand_filename, 'wb', template=self.alignment_file)
+        for read in self.alignment_file.fetch():
+            if read.mapq == 255:
+                self.mapped_read_count += 1
+                forward_strand.write(read)
+                if read.is_read2:
+                    self.is_paired = True
+
+        # For paired-end runs, provide a rough count of fragments rather than reads
+        if self.is_paired:
+            self.mapped_read_count //= 2
+
+    def write_bedgraph(self, forward_output=None, reverse_output=None, use_multiprocessing=False):
+        """
+
+        :return:
+        :param forward_output:
+        :param reverse_output:
+        :param use_multiprocessing:
+        :return:
+        """
+
+        # scale coverage by million mapped reads/fragments
+        scale_factor = RPMM_SCALE_FACTOR / self.mapped_read_count
+        bedgraph_forward = get_genome_coverage(self.forward_strand_filename, scale_factor)
+
+        if forward_output:
+            bedgraph_forward.moveto(forward_output)
+
+        return bedgraph_forward
+
+    def write_bigwig(self, forward_output, genome):
+        chrom_sizes_path = get_chrom_sizes(genome)
+        bedgraph_forward = self.write_bedgraph()
+
+        bigwig_command_forward = shlex.split(BIGWIG_COMMAND.format(bedgraph=bedgraph_forward.fn,
+                                                                   chrom_sizes=chrom_sizes_path,
+                                                                   bigwig=forward_output))
+        subprocess.check_call(bigwig_command_forward)
+
+
+class StrandedCoverageCalculator(UnstrandedCoverageCalculator):
+    def __init__(self, bam_filename):
+        super().__init__(bam_filename)
         self.reverse_strand_filename = os.path.join(self.output_path, 'rev.bam')
+        self.process_stranded_reads()
+
+    def process_reads(self):
+        pass
+
+    def process_stranded_reads(self):
+        """
+        Separate mapped reads into forward/reverse strand. For single-end runs, this only requires flipping the read
+        strand. For paired-end runs, read1 is flipped, while read2 retains its strandedness.
+        :return:
+        """
         forward_strand = pysam.AlignmentFile(self.forward_strand_filename, 'wb', template=self.alignment_file)
         reverse_strand = pysam.AlignmentFile(self.reverse_strand_filename, 'wb', template=self.alignment_file)
 

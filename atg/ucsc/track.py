@@ -2,8 +2,9 @@ import os
 import sys
 import yaml
 import multiprocessing
-from atg.quantification.coverage import CoverageCalculator
+import atg.quantification.coverage
 
+DEFAULT_TRACK_Y_LIMIT = 20
 GENOMES_TXT = 'genome {genome}\ntrackDb {genome}/trackDb.txt'
 HUB_TXT = ("hub {hub}\n"
            "shortLabel {hub}\n"
@@ -15,7 +16,7 @@ HUB_TOPLEVEL = ("track {hub}\n"
                 "superTrack on show\n"
                 "shortLabel {hub}\n"
                 "longLabel {hub}\n"
-                "viewLimits -20:20\n"
+                "viewLimits {ymin}:{ymax}\n"
                 "viewLimitsMax -100:100\n\n")
 
 HUB_CONTAINER = ("\ttrack {name}\n"
@@ -63,9 +64,14 @@ COLOR_CYCLE = ('251,180,174', '179,205,227', '204,235,197', '222,203,228', '254,
                '229,216,189', '253,218,236', '242,242,242')
 
 
-def bam_to_bigwig(bam_path, bigwig_forward_output, bigwig_reverse_output, genome):
-    coverage = CoverageCalculator(bam_path)
-    coverage.write_bigwig(bigwig_forward_output, bigwig_reverse_output, genome)
+def bam_to_bigwig(bam_path, genome, bigwig_forward_output, bigwig_reverse_output=None):
+    if bigwig_reverse_output == 'None':
+        coverage = atg.quantification.coverage.UnstrandedCoverageCalculator(bam_path)
+        coverage.write_bigwig(bigwig_forward_output, genome)
+
+    else:
+        coverage = atg.quantification.coverage.StrandedCoverageCalculator(bam_path)
+        coverage.write_bigwig(bigwig_forward_output, bigwig_reverse_output, genome)
 
 
 class HubBuilder:
@@ -86,6 +92,7 @@ class HubBuilder:
         self.hub = self.hub_config['hub']
         self.genome = self.hub_config['genome']
         self.base_output_path = self.hub_config['path']
+        self.library = self.hub_config['library']
 
     def make_output_structure(self, overwrite=False):
         output_path = os.path.join(self.base_output_path, self.genome)
@@ -107,7 +114,15 @@ class HubBuilder:
         track_queue = []
 
         with open(os.path.join(self.base_output_path, self.genome, 'trackDb.txt'), 'w') as trackDb_output:
-            trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub))
+            # determine y-axis scaling based on library type
+            if self.library == 'unstranded':
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=0, ymax=DEFAULT_TRACK_Y_LIMIT))
+            elif self.library == 'rf':
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT))
+            else:
+                print('Library type not recognized, should be either "unstranded" or "rf"')
+                sys.exit(1)
 
             for multitrack in self.hub_config['multitracks']:
                 for multitrack_name, track_list in multitrack.items():
@@ -120,21 +135,34 @@ class HubBuilder:
 
                         output_filename_list = []
 
-                        # each sample will have a positive and negative track entry
-                        for strand in ('pos', 'neg'):
-                            current_path = bam_basename + '_' + strand + os.path.extsep + 'bigwig'
+                        if self.library == 'unstranded':
+                            current_path = bam_basename + os.path.extsep + 'bigwig'
                             output_filename_list.append(current_path)
-                            trackDb_output.write(TRACK_ENTRY_STRANDED.format(track=track_dict['track'],
-                                                                             path=current_path,
-                                                                             parent=multitrack_name,
-                                                                             rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)],
-                                                                             strand=strand))
+                            trackDb_output.write(TRACK_ENTRY_UNSTRANDED.format(track=track_dict['track'],
+                                                                               path=current_path,
+                                                                               parent=multitrack_name,
+                                                                               rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)]))
+                            track_queue.append([os.path.join(self.data_path, bam_path),
+                                                self.genome,
+                                                os.path.join(self.base_output_path, self.genome, output_filename_list[0]),
+                                                None])
 
-                        # queue up coverage calculation parameters
-                        track_queue.append([os.path.join(self.data_path, bam_path),
-                                            os.path.join(self.base_output_path, self.genome, output_filename_list[0]),
-                                            os.path.join(self.base_output_path, self.genome, output_filename_list[1]),
-                                            self.genome])
+                        elif self.library == 'rf':
+                            # each sample will have a positive and negative track entry
+                            for strand in ('pos', 'neg'):
+                                current_path = bam_basename + '_' + strand + os.path.extsep + 'bigwig'
+                                output_filename_list.append(current_path)
+                                trackDb_output.write(TRACK_ENTRY_STRANDED.format(track=track_dict['track'],
+                                                                                 path=current_path,
+                                                                                 parent=multitrack_name,
+                                                                                 rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)],
+                                                                                 strand=strand))
+
+                            # queue up coverage calculation parameters
+                            track_queue.append([os.path.join(self.data_path, bam_path),
+                                                self.genome,
+                                                os.path.join(self.base_output_path, self.genome, output_filename_list[0]),
+                                                os.path.join(self.base_output_path, self.genome, output_filename_list[1])])
 
         # generate actual data tracks in parallel
         with multiprocessing.Pool(processes=8) as pool:
