@@ -58,18 +58,22 @@ class CoverageCalculator:
         # NOTE: only uniquely mapped reads (according to STAR) are retained
         for read in self.alignment_file.fetch():
             if read.mapq == 255:
-                if read.is_read1:
-                    self.mapped_read_count += 1
-                    if read.is_reverse:
-                        forward_strand.write(read)
-                    else:
-                        reverse_strand.write(read)
-                else:
+                self.mapped_read_count += 1
+                if read.is_read2:
                     is_paired = True
                     if read.is_reverse:
                         reverse_strand.write(read)
                     else:
                         forward_strand.write(read)
+                else:
+                    if read.is_reverse:
+                        forward_strand.write(read)
+                    else:
+                        reverse_strand.write(read)
+
+        # For paired-end runs, provide a rough count of fragments rather than reads
+        if is_paired:
+            self.mapped_read_count //= 2
 
         forward_strand.close()
         reverse_strand.close()
