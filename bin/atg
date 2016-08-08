@@ -19,7 +19,7 @@ def setup_hub(namespace):
     print('hub:', namespace.name)
     print('genome:', namespace.genome)
     print('path:', namespace.path)
-    print('strand-specificity:', namespace.library)
+    print('library:', namespace.library)
     print('multitracks:')
     print('  - default:')
 
