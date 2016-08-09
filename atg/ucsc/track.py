@@ -16,6 +16,7 @@ HUB_TOPLEVEL = ("track {hub}\n"
                 "superTrack on show\n"
                 "shortLabel {hub}\n"
                 "longLabel {hub}\n"
+                "autoScale {autoscale}\n"
                 "viewLimits {ymin}:{ymax}\n"
                 "configurable on\n"
                 "aggregate transparentOverlay\n"
@@ -89,7 +90,13 @@ class HubBuilder:
         self.hub = self.hub_config['hub']
         self.genome = self.hub_config['genome']
         self.base_output_path = self.hub_config['path']
-        self.library = self.hub_config['library']
+        self.library = self.hub_config.get('library', 'unstranded')
+
+        scale = self.hub_config.get('scale', 'auto')
+        if scale == 'auto':
+            self.autoscale = 'on'
+        else:
+            self.autoscale = 'off'
 
     def make_output_structure(self, overwrite=False):
         output_path = os.path.join(self.base_output_path, self.genome)
@@ -113,10 +120,15 @@ class HubBuilder:
         with open(os.path.join(self.base_output_path, self.genome, 'trackDb.txt'), 'w') as trackDb_output:
             # determine y-axis scaling based on library type
             if self.library == 'unstranded':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=0, ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=0,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             elif self.library == 'rf':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
-                                                         ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             else:
                 print('Library type not recognized, should be either "unstranded" or "rf"')
                 sys.exit(1)
@@ -169,16 +181,13 @@ class HubBuilder:
             pool.starmap(bam_to_bigwig, track_queue)
 
 
-class TrackOrganizer:
+class TrackOrganizer(HubBuilder):
     """
     Modify an existing Genome Browser Hub (generated with Homer), arranging tracks as specified by YAML file.
     """
 
     def __init__(self, hub_config_filename):
-        self.hub_config = yaml.load(open(hub_config_filename))
-        self.hub = self.hub_config['hub']
-        self.genome = self.hub_config['genome']
-        self.library = self.hub_config['library']
+        super().__init__(hub_config_filename)
 
     def write_track_db(self, output_filename='trackDb.txt'):
         """
@@ -189,10 +198,15 @@ class TrackOrganizer:
         with open(output_filename, 'w') as trackDb_output:
             # determine y-axis scaling based on library type
             if self.library == 'unstranded':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=0, ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=0,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             elif self.library == 'rf':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
-                                                         ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             else:
                 print('Library type not recognized, should be either "unstranded" or "rf"')
                 sys.exit(1)
@@ -222,6 +236,10 @@ def setup_hub(namespace):
     print('genome:', namespace.genome)
     print('path:', namespace.path)
     print('library:', namespace.library)
+    if namespace.fixed_scale:
+        print('scale: fixed')
+    else:
+        print('scale: auto')
     print('multitracks:')
     print('  - default:')
 
@@ -251,6 +269,8 @@ def setup_subparsers(subparsers):
     setup_hub_parser.add_argument('-p', '--path', help="Path for hub output", default="PATH")
     setup_hub_parser.add_argument('-l', '--library', help="Strand specificity of sequencing library",
                                   choices=['unstranded', 'rf'], default='rf')
+    setup_hub_parser.add_argument('-f', '--fixed_scale', help="Use a fixed y scale (auto-scale by default)",
+                                  action="store_true")
     setup_hub_parser.set_defaults(func=setup_hub)
 
     # New organization of existing bigwig files
