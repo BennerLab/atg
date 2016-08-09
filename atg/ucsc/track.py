@@ -144,7 +144,8 @@ class HubBuilder:
                                                                                rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)]))
                             track_queue.append([os.path.join(self.data_path, bam_path),
                                                 self.genome,
-                                                os.path.join(self.base_output_path, self.genome, output_filename_list[0]),
+                                                os.path.join(self.base_output_path,
+                                                             self.genome, output_filename_list[0]),
                                                 None])
 
                         elif self.library == 'rf':
@@ -161,8 +162,10 @@ class HubBuilder:
                             # queue up coverage calculation parameters
                             track_queue.append([os.path.join(self.data_path, bam_path),
                                                 self.genome,
-                                                os.path.join(self.base_output_path, self.genome, output_filename_list[0]),
-                                                os.path.join(self.base_output_path, self.genome, output_filename_list[1])])
+                                                os.path.join(self.base_output_path,
+                                                             self.genome, output_filename_list[0]),
+                                                os.path.join(self.base_output_path,
+                                                             self.genome, output_filename_list[1])])
 
         # generate actual data tracks in parallel
         with multiprocessing.Pool(processes=8) as pool:
@@ -178,6 +181,7 @@ class TrackOrganizer:
         self.hub_config = yaml.load(open(hub_config_filename))
         self.hub = self.hub_config['hub']
         self.genome = self.hub_config['genome']
+        self.library = self.hub_config['library']
 
     def write_track_db(self, output_filename='trackDb.txt'):
         """
@@ -186,7 +190,15 @@ class TrackOrganizer:
         """
 
         with open(output_filename, 'w') as trackDb_output:
-            trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub))
+            # determine y-axis scaling based on library type
+            if self.library == 'unstranded':
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=0, ymax=DEFAULT_TRACK_Y_LIMIT))
+            elif self.library == 'rf':
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT))
+            else:
+                print('Library type not recognized, should be either "unstranded" or "rf"')
+                sys.exit(1)
 
             for multitrack in self.hub_config['multitracks']:
                 for multitrack_name, track_list in multitrack.items():
@@ -198,3 +210,55 @@ class TrackOrganizer:
                         trackDb_output.write(TRACK_ENTRY_UNSTRANDED.format(track=track_dict['track'], path=bigwig_path,
                                                                            parent=multitrack_name,
                                                                            rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)]))
+
+# Functions for main atg script
+
+
+def make_hub(namespace):
+    hub = HubBuilder(namespace.config)
+    hub.make_output_structure(overwrite=True)
+    hub.write_files()
+
+
+def setup_hub(namespace):
+    print('hub:', namespace.name)
+    print('genome:', namespace.genome)
+    print('path:', namespace.path)
+    print('library:', namespace.library)
+    print('multitracks:')
+    print('  - default:')
+
+    for filename in namespace.file_list:
+        trackname = os.path.splitext(os.path.basename(filename))[0]
+        print('    - track:', trackname)
+        print('      path:', filename)
+
+
+def reorganize_hub(namespace):
+    hub = TrackOrganizer(namespace.config)
+    hub.write_track_db(namespace.output)
+
+
+def setup_subparsers(subparsers):
+    make_hub_parser = subparsers.add_parser('make', help='Generate a Hub from YAML file, including conversion of BAM'
+                                                         'to bigWig.')
+    make_hub_parser.add_argument('config', help="YAML configuration file")
+    make_hub_parser.set_defaults(func=make_hub)
+
+    # Generate a basic YAML file for describing data and output
+    setup_hub_parser = subparsers.add_parser('setup', help="Generate a simple YAML configuration file for "
+                                                           "Hub grouping. Outputs to stdout.")
+    setup_hub_parser.add_argument('file_list', nargs='+', help="BAM files")
+    setup_hub_parser.add_argument('-n', '--name', help="Hub name", default="DEFAULT")
+    setup_hub_parser.add_argument('-g', '--genome', help="UCSC genome, e.g. hg38", default="GENOME")
+    setup_hub_parser.add_argument('-p', '--path', help="Path for hub output", default="PATH")
+    setup_hub_parser.add_argument('-l', '--library', help="Strand specificity of sequencing library",
+                                  choices=['unstranded', 'rf'], default='rf')
+    setup_hub_parser.set_defaults(func=setup_hub)
+
+    # New organization of existing bigwig files
+    reorganize_hub_parser = subparsers.add_parser('reorganize', help="Generate a new trackDb.txt file given a YAML "
+                                                                     "configuration. Will not create tracks.")
+    reorganize_hub_parser.add_argument('config', help="YAML configuration file")
+    reorganize_hub_parser.add_argument('-o', '--output', help="output file", default="trackDb.txt")
+    reorganize_hub_parser.set_defaults(func=reorganize_hub)
