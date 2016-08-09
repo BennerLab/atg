@@ -16,26 +16,24 @@ HUB_TOPLEVEL = ("track {hub}\n"
                 "superTrack on show\n"
                 "shortLabel {hub}\n"
                 "longLabel {hub}\n"
+                "autoScale {autoscale}\n"
                 "viewLimits {ymin}:{ymax}\n"
-                "viewLimitsMax -100:100\n\n")
+                "configurable on\n"
+                "aggregate transparentOverlay\n"
+                "showSubtrackColorOnUi on\n"
+                "windowingFunction maximum\n"
+                "priority 1.4\n"
+                "alwaysZero on\n"
+                "yLineOnOff on\n"
+                "maxHeightPixels 125:125:11\n\n")
 
 HUB_CONTAINER = ("\ttrack {name}\n"
                  "\tparent {parent}\n"
                  "\tcontainer multiWig\n"
-                 "\tnoInherit on\n"
                  "\tshortLabel {name}\n"
                  "\tlongLabel {name}\n"
                  "\ttype bigWig\n"
-                 "\tconfigurable on\n"
-                 "\tvisibility full\n"
-                 "\taggregate transparentOverlay\n"
-                 "\tshowSubtrackColorOnUi on\n"
-                 "\twindowingFunction maximum\n"
-                 "\tpriority 1.4\n"
-                 "\talwaysZero on\n"
-                 "\tyLineMark 0\n"
-                 "\tyLineOnOff on\n"
-                 "\tmaxHeightPixels 125:125:11\n\n")
+                 "\tvisibility full\n\n")
 
 TRACK_ENTRY_STRANDED = ("\t\ttrack {track}-{strand}\n"
                         "\t\tbigDataUrl {path}\n"
@@ -74,6 +72,24 @@ def bam_to_bigwig(bam_path, genome, bigwig_forward_output, bigwig_reverse_output
         coverage.write_bigwig(bigwig_forward_output, bigwig_reverse_output, genome)
 
 
+def valid_rgb_string(rgb_string):
+    """
+
+    :param rgb_string:
+    :return: True if valid, False otherwise
+    """
+    try:
+        color_list = [int(x) for x in rgb_string.split(',')]
+        for color_value in color_list:
+            if color_value < 0 or color_value > 255:
+                return False
+
+    except:
+        return False
+
+    return True
+
+
 class HubBuilder:
     """
 
@@ -92,7 +108,13 @@ class HubBuilder:
         self.hub = self.hub_config['hub']
         self.genome = self.hub_config['genome']
         self.base_output_path = self.hub_config['path']
-        self.library = self.hub_config['library']
+        self.library = self.hub_config.get('library', 'unstranded')
+
+        scale = self.hub_config.get('scale', 'auto')
+        if scale == 'auto':
+            self.autoscale = 'on'
+        else:
+            self.autoscale = 'off'
 
     def make_output_structure(self, overwrite=False):
         output_path = os.path.join(self.base_output_path, self.genome)
@@ -116,10 +138,15 @@ class HubBuilder:
         with open(os.path.join(self.base_output_path, self.genome, 'trackDb.txt'), 'w') as trackDb_output:
             # determine y-axis scaling based on library type
             if self.library == 'unstranded':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=0, ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=0,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             elif self.library == 'rf':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
-                                                         ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             else:
                 print('Library type not recognized, should be either "unstranded" or "rf"')
                 sys.exit(1)
@@ -133,6 +160,16 @@ class HubBuilder:
                         bam_filename = os.path.split(bam_path)[1]
                         bam_basename = os.path.splitext(bam_filename)[0]
 
+                        # get/check RGB color string
+                        current_color = track_dict.get('color', COLOR_CYCLE[i % len(COLOR_CYCLE)])
+                        if not valid_rgb_string(current_color):
+                            print('\nYour hub configuration contains an invalid RGB (color) string: "%s"\n'
+                                  'The format should be [red],[green],[blue], '
+                                  'where all colors are integers from 0-255.\n'
+                                  % current_color,
+                                  file=sys.stderr)
+                            sys.exit(1)
+
                         output_filename_list = []
 
                         if self.library == 'unstranded':
@@ -141,7 +178,7 @@ class HubBuilder:
                             trackDb_output.write(TRACK_ENTRY_UNSTRANDED.format(track=track_dict['track'],
                                                                                path=current_path,
                                                                                parent=multitrack_name,
-                                                                               rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)]))
+                                                                               rgb=current_color))
                             track_queue.append([os.path.join(self.data_path, bam_path),
                                                 self.genome,
                                                 os.path.join(self.base_output_path,
@@ -156,7 +193,7 @@ class HubBuilder:
                                 trackDb_output.write(TRACK_ENTRY_STRANDED.format(track=track_dict['track'],
                                                                                  path=current_path,
                                                                                  parent=multitrack_name,
-                                                                                 rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)],
+                                                                                 rgb=current_color,
                                                                                  strand=strand))
 
                             # queue up coverage calculation parameters
@@ -172,16 +209,13 @@ class HubBuilder:
             pool.starmap(bam_to_bigwig, track_queue)
 
 
-class TrackOrganizer:
+class TrackOrganizer(HubBuilder):
     """
     Modify an existing Genome Browser Hub (generated with Homer), arranging tracks as specified by YAML file.
     """
 
     def __init__(self, hub_config_filename):
-        self.hub_config = yaml.load(open(hub_config_filename))
-        self.hub = self.hub_config['hub']
-        self.genome = self.hub_config['genome']
-        self.library = self.hub_config['library']
+        super().__init__(hub_config_filename)
 
     def write_track_db(self, output_filename='trackDb.txt'):
         """
@@ -192,10 +226,15 @@ class TrackOrganizer:
         with open(output_filename, 'w') as trackDb_output:
             # determine y-axis scaling based on library type
             if self.library == 'unstranded':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=0, ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=0,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             elif self.library == 'rf':
-                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
-                                                         ymax=DEFAULT_TRACK_Y_LIMIT))
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
+                                                         ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         autoscale=self.autoscale))
             else:
                 print('Library type not recognized, should be either "unstranded" or "rf"')
                 sys.exit(1)
@@ -225,13 +264,21 @@ def setup_hub(namespace):
     print('genome:', namespace.genome)
     print('path:', namespace.path)
     print('library:', namespace.library)
+    if namespace.fixed_scale:
+        print('scale: fixed')
+    else:
+        print('scale: auto')
     print('multitracks:')
     print('  - default:')
 
+    is_first_track = True
     for filename in namespace.file_list:
         trackname = os.path.splitext(os.path.basename(filename))[0]
         print('    - track:', trackname)
         print('      path:', filename)
+        if is_first_track:
+            print('#     color: 251,180,174 #Example: optional, manually-specified color')
+            is_first_track = False
 
 
 def reorganize_hub(namespace):
@@ -254,6 +301,8 @@ def setup_subparsers(subparsers):
     setup_hub_parser.add_argument('-p', '--path', help="Path for hub output", default="PATH")
     setup_hub_parser.add_argument('-l', '--library', help="Strand specificity of sequencing library",
                                   choices=['unstranded', 'rf'], default='rf')
+    setup_hub_parser.add_argument('-f', '--fixed_scale', help="Use a fixed y scale (auto-scale by default)",
+                                  action="store_true")
     setup_hub_parser.set_defaults(func=setup_hub)
 
     # New organization of existing bigwig files
