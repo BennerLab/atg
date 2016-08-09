@@ -72,6 +72,24 @@ def bam_to_bigwig(bam_path, genome, bigwig_forward_output, bigwig_reverse_output
         coverage.write_bigwig(bigwig_forward_output, bigwig_reverse_output, genome)
 
 
+def valid_rgb_string(rgb_string):
+    """
+
+    :param rgb_string:
+    :return: True if valid, False otherwise
+    """
+    try:
+        color_list = [int(x) for x in rgb_string.split(',')]
+        for color_value in color_list:
+            if color_value < 0 or color_value > 255:
+                return False
+
+    except:
+        return False
+
+    return True
+
+
 class HubBuilder:
     """
 
@@ -142,6 +160,16 @@ class HubBuilder:
                         bam_filename = os.path.split(bam_path)[1]
                         bam_basename = os.path.splitext(bam_filename)[0]
 
+                        # get/check RGB color string
+                        current_color = track_dict.get('color', COLOR_CYCLE[i % len(COLOR_CYCLE)])
+                        if not valid_rgb_string(current_color):
+                            print('\nYour hub configuration contains an invalid RGB (color) string: "%s"\n'
+                                  'The format should be [red],[green],[blue], '
+                                  'where all colors are integers from 0-255.\n'
+                                  % current_color,
+                                  file=sys.stderr)
+                            sys.exit(1)
+
                         output_filename_list = []
 
                         if self.library == 'unstranded':
@@ -150,7 +178,7 @@ class HubBuilder:
                             trackDb_output.write(TRACK_ENTRY_UNSTRANDED.format(track=track_dict['track'],
                                                                                path=current_path,
                                                                                parent=multitrack_name,
-                                                                               rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)]))
+                                                                               rgb=current_color))
                             track_queue.append([os.path.join(self.data_path, bam_path),
                                                 self.genome,
                                                 os.path.join(self.base_output_path,
@@ -165,7 +193,7 @@ class HubBuilder:
                                 trackDb_output.write(TRACK_ENTRY_STRANDED.format(track=track_dict['track'],
                                                                                  path=current_path,
                                                                                  parent=multitrack_name,
-                                                                                 rgb=COLOR_CYCLE[i % len(COLOR_CYCLE)],
+                                                                                 rgb=current_color,
                                                                                  strand=strand))
 
                             # queue up coverage calculation parameters
@@ -243,10 +271,14 @@ def setup_hub(namespace):
     print('multitracks:')
     print('  - default:')
 
+    is_first_track = True
     for filename in namespace.file_list:
         trackname = os.path.splitext(os.path.basename(filename))[0]
         print('    - track:', trackname)
         print('      path:', filename)
+        if is_first_track:
+            print('#     color: 251,180,174 #Example: optional, manually-specified color')
+            is_first_track = False
 
 
 def reorganize_hub(namespace):
