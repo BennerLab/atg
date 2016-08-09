@@ -181,6 +181,7 @@ class TrackOrganizer:
         self.hub_config = yaml.load(open(hub_config_filename))
         self.hub = self.hub_config['hub']
         self.genome = self.hub_config['genome']
+        self.library = self.hub_config['library']
 
     def write_track_db(self, output_filename='trackDb.txt'):
         """
@@ -189,7 +190,15 @@ class TrackOrganizer:
         """
 
         with open(output_filename, 'w') as trackDb_output:
-            trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub))
+            # determine y-axis scaling based on library type
+            if self.library == 'unstranded':
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=0, ymax=DEFAULT_TRACK_Y_LIMIT))
+            elif self.library == 'rf':
+                trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub, ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=DEFAULT_TRACK_Y_LIMIT))
+            else:
+                print('Library type not recognized, should be either "unstranded" or "rf"')
+                sys.exit(1)
 
             for multitrack in self.hub_config['multitracks']:
                 for multitrack_name, track_list in multitrack.items():
