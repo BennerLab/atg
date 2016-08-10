@@ -1,5 +1,5 @@
 """
-Assemble genomic data from various sources (e.g. UCSC, ENSEMBL) and organize them in a standard way.
+Assemble genomic data from various sources (e.g. UCSC, Ensembl) and organize them in a standard way.
 """
 
 import os
@@ -7,8 +7,17 @@ import sys
 import urllib.parse
 import urllib.request
 import urllib.error
+import gzip
+import configparser
 import atg.config
 import atg.data
+
+DATA_SOURCE_PATH = os.path.join(os.path.dirname(__file__), 'data_sources.ini')
+GENOME_FILES = [
+    'chrom.sizes',  # UCSC chromosome sizes
+    'genome.fa',    # Ensembl genome sequence
+    'genes.gtf'     # Ensembl gene annotation
+]
 
 
 def fetch_ensembl(xml_filename, output_filename):
@@ -38,12 +47,20 @@ def fetch_url(url, path, overwrite=False):
     if not overwrite and os.path.exists(path):
         return False
 
-    try:
-        urllib.request.urlretrieve(url, filename=path)
+    # for compressed files, make sure to decompress before writing to disk
+    if url.endswith('.gz'):
+        response = urllib.request.urlopen(url)
+        with open(path, 'wb') as output_file:
+            output_file.write(gzip.decompress(response.read()))
 
-    except urllib.error.HTTPError as error:
-        print("Could not retrieve %s: %s [HTTP Error %s]" % (url, error.reason, error.code), file=sys.stderr)
-        return False
+    # download uncompressed files directly
+    else:
+        try:
+            urllib.request.urlretrieve(url, filename=path)
+
+        except urllib.error.HTTPError as error:
+            print("Could not retrieve %s: %s [HTTP Error %s]" % (url, error.reason, error.code), file=sys.stderr)
+            return False
 
     return True
 
@@ -55,10 +72,15 @@ class ATGDataTracker:
 
     def __init__(self):
         self.data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
+        self.config = configparser.ConfigParser(default_section="Common",
+                                                interpolation=configparser.ExtendedInterpolation())
+        self.config.read(DATA_SOURCE_PATH)
         self.genome_path = {}
-        for genome, organism in atg.data.genome_hierarchy.items():
-            current_genome_path = os.path.join(self.data_root, organism, 'Current', genome)
-            self.genome_path[genome] = current_genome_path
+
+        for genome_id in self.config.sections():
+            organism = self.config.get(genome_id, 'organism')
+            current_genome_path = os.path.join(self.data_root, organism, 'Current', genome_id)
+            self.genome_path[genome_id] = current_genome_path
             os.makedirs(current_genome_path, exist_ok=True)
 
     def retrieve_data(self, genome, overwrite=False):
@@ -74,12 +96,15 @@ class ATGDataTracker:
             print('%s is not an available genome.' % genome, file=sys.stderr)
             return False
 
-        for filename, base_url in atg.data.genome_data.items():
-            current_url = base_url.format(genome=genome)
+        for filename, current_url in self.config.items(genome):
+            if filename not in GENOME_FILES:
+                continue
+
             current_path = os.path.join(self.genome_path[genome], filename)
-            fetch_status = fetch_url(current_url, current_path, overwrite=overwrite)
+            print(current_url, current_path)
+            fetch_url(current_url, current_path, overwrite=overwrite)
 
 
 if __name__ == '__main__':
     tracker = ATGDataTracker()
-    tracker.retrieve_data('hg38')
+    tracker.retrieve_data('mm10', overwrite=False)
