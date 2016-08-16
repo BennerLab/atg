@@ -14,23 +14,26 @@ import atg.data
 
 DATA_SOURCE_PATH = os.path.join(os.path.dirname(__file__), 'data_sources.ini')
 GENOME_FILES = [
-    'chrom.sizes',  # UCSC chromosome sizes
-    'genome.fa',    # Ensembl genome sequence
-    'genes.gtf'     # Ensembl gene annotation
+    'chrom.sizes',                     # UCSC chromosome sizes
+    'genome.fa',                       # Ensembl genome sequence
+    'genes.gtf',                       # Ensembl gene annotation
+    'gene_go.csv',                     # Ensembl gene <-> GO accession
+    'go_definition.csv',               # information for all GO terms
+    'ensembl_gene.csv',                # Ensembl gene information
+    'ensembl_gene_transcript.csv',     # Ensembl gene <-> transcript ID
+    'ensembl_transcript.csv'           # Ensembl transcript information
 ]
 
 
-def fetch_ensembl(xml_filename, output_filename):
+def fetch_ensembl(xml_string, output_filename):
     """
     retrieve data from Ensembl using XML specifications (e.g. for gene annotation or Gene Ontology sets)
 
-    :param xml_filename:
+    :param xml_string:
     :param output_filename:
     :return:
     """
-    input_file = open(xml_filename)
-    definition = ''.join(input_file.readlines())
-    query = urllib.parse.quote(definition)
+    query = urllib.parse.quote(xml_string)
     url = 'http://www.ensembl.org/biomart/martservice?query=' + query
     return fetch_url(url, output_filename)
 
@@ -101,10 +104,12 @@ class ATGDataTracker:
                 continue
 
             current_path = os.path.join(self.genome_path[genome], filename)
-            print(current_url, current_path)
-            fetch_url(current_url, current_path, overwrite=overwrite)
+            if current_url.startswith('<?xml'):
+                fetch_ensembl(current_url, current_path)
+            else:
+                fetch_url(current_url, current_path, overwrite=overwrite)
 
 
 if __name__ == '__main__':
     tracker = ATGDataTracker()
-    tracker.retrieve_data('mm10', overwrite=False)
+    tracker.retrieve_data('hg38', overwrite=False)
