@@ -4,3 +4,4 @@ pybedtools
 ucsc-bedgraphtobigwig
 pyyaml
 nose
+pandas
