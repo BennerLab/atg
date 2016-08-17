@@ -7,3 +7,4 @@ nose
 numpy
 pandas
 statsmodels
+scipy
