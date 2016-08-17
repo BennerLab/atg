@@ -28,6 +28,12 @@ class EnrichmentTest(unittest.TestCase):
         self.assertLess(better_pvalue, good_pvalue)
         self.assertLess(good_pvalue, -5.0)
 
-        bad_pvalue = self.calculator.get_single_enrichment(good_gene_list, 'GO:0005886')
+        bad_pvalue = self.calculator.get_single_enrichment(good_gene_list, 'GO:0000122')
         self.assertGreater(bad_pvalue, -5.0)
 
+    def test_full_enrichment(self):
+        good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + list(range(100))
+
+        enrichment_df = self.calculator.get_all_enrichment(good_gene_list)
+        self.assertIn('GO:0007259', enrichment_df.index)
+        self.assertLess(enrichment_df.shape[0], 100)
