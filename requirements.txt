@@ -5,3 +5,4 @@ ucsc-bedgraphtobigwig
 pyyaml
 nose
 pandas
+scipy
