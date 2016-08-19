@@ -17,13 +17,15 @@ class EnrichmentTest(unittest.TestCase):
     def setUp(self):
         data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
         go_term_path = os.path.join(data_root, 'human', 'Current', 'hg38', 'gene_go.csv')
-        self.calculator = atg.stats.enrich.EnrichmentCalculator(go_term_path)
+        go_definition_path = os.path.join(data_root, 'human', 'Current', 'hg38', 'go_definition.csv')
+        self.calculator = atg.stats.enrich.EnrichmentCalculator(go_term_path, go_definition_path)
+        self.all_genes = self.calculator.gene_term_df['Ensembl Gene ID'].drop_duplicates()
 
     def test_single_term(self):
-        good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + list(range(100))
+        good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + self.all_genes.sample(100).tolist()
         good_pvalue = self.calculator.get_single_enrichment(good_gene_list, 'GO:0007259')
 
-        better_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:10] + list(range(100))
+        better_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:10]+ self.all_genes.sample(100).tolist()
         better_pvalue = self.calculator.get_single_enrichment(better_gene_list, 'GO:0007259')
         self.assertLess(better_pvalue, good_pvalue)
         self.assertLess(good_pvalue, -5.0)
@@ -32,8 +34,12 @@ class EnrichmentTest(unittest.TestCase):
         self.assertGreater(bad_pvalue, -5.0)
 
     def test_full_enrichment(self):
-        good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + list(range(100))
+        good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + self.all_genes.sample(100).tolist()
 
         enrichment_df = self.calculator.get_all_enrichment(good_gene_list)
         self.assertIn('GO:0007259', enrichment_df.index)
-        self.assertLess(enrichment_df.shape[0], 100)
+        self.assertLess(sum(enrichment_df['log_pvalue'] < -5), 100)
+
+    def test_plot(self):
+        good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + self.all_genes.sample(100).tolist()
+        self.calculator.plot_enrichment_single(good_gene_list)

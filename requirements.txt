@@ -4,5 +4,8 @@ pybedtools
 ucsc-bedgraphtobigwig
 pyyaml
 nose
-pandas
+numpy
 scipy
+pandas
+matplotlib
+seaborn
