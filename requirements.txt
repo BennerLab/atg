@@ -8,3 +8,5 @@ numpy
 pandas
 statsmodels
 scipy
+matplotlib
+seaborn
