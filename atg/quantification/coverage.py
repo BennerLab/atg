@@ -22,7 +22,7 @@ def get_chrom_sizes(genome):
     :param genome: a UCSC genome abbreviation, e.g. hg19
     :return: absolute path to chromosome sizes for specified genome
     """
-    genome_dict = {'hg19': 'human', 'hg38': 'human', 'mm10': 'mouse', 'mm9': 'mouse'}
+    genome_dict = {'hg19': 'human', 'hg38': 'human', 'mm10': 'mouse', 'mm9': 'mouse', 'papAnu2': 'baboon'}
     data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
     chrom_sizes_path = os.path.join(data_root, genome_dict[genome], 'Current', genome,
                                     'chrom.sizes')
@@ -32,6 +32,32 @@ def get_chrom_sizes(genome):
 
 def get_genome_coverage(filename, scale):
     return pybedtools.BedTool(filename).genome_coverage(bg=True, split=True, scale=scale).sort()
+
+
+def prepend_chr(bedtool_feature):
+    bedtool_feature.chrom = 'chr' + bedtool_feature.chrom
+    return bedtool_feature
+
+
+def translate_bedgraph(input_bedtool, output_filename, chrom_sizes_path):
+    """
+    Simple translation of a bedgraph from Ensembl chromosome numbering (e.g. 1) to UCSC (e.g. chr1). Any scaffolds or
+    haplotype blocks will be ignored (not written to the output).
+
+    :param input_bedtool: a BedTool object from pybedtools
+    :param output_filename:
+    :param chrom_sizes_path: path to chrom.sizes table
+    :return:
+    """
+    chromosome_set = set()
+
+    for line in open(chrom_sizes_path):
+        chrom_name = line.strip().split()[0]
+        chromosome_set.add(chrom_name)
+
+    ucsc_bedgraph = input_bedtool.each(prepend_chr).filter(lambda x: x.chrom in chromosome_set)
+    ucsc_bedgraph.saveas(output_filename)
+
 
 class UnstrandedCoverageCalculator:
     def __init__(self, bam_filename):
@@ -86,11 +112,36 @@ class UnstrandedCoverageCalculator:
 
         return bedgraph_forward
 
+    def _check_chromosome_names(self, chrom_sizes_path):
+        # check UCSC chromosome sizes file
+        self.ucsc_chromosomes = set()
+        for line in open(chrom_sizes_path):
+            chrom_name = line.strip().split()[0]
+            self.ucsc_chromosomes.add(chrom_name)
+
+        # find chromosome names in BAM file
+        alignment_reference_sequence_list = self.alignment_file.header['SQ']
+        alignment_reference_seq_set = set()
+        for reference_entry in alignment_reference_sequence_list:
+            alignment_reference_seq_set.add(reference_entry['SN'])
+
+        # any chromosomes in common?
+        if len(alignment_reference_seq_set.intersection(self.ucsc_chromosomes)) == 0:
+            return False
+
+        return True
+
     def write_bigwig(self, forward_output, genome):
         chrom_sizes_path = get_chrom_sizes(genome)
         bedgraph_forward = self.write_bedgraph()
 
-        bigwig_command_forward = shlex.split(BIGWIG_COMMAND.format(bedgraph=bedgraph_forward.fn,
+        if self._check_chromosome_names(chrom_sizes_path):
+            bedgraph_forward_filename = bedgraph_forward.fn
+        else:
+            bedgraph_forward_filename = os.path.join(self.output_path, 'forward_ucsc.bedgraph')
+            translate_bedgraph(bedgraph_forward, bedgraph_forward_filename, chrom_sizes_path)
+
+        bigwig_command_forward = shlex.split(BIGWIG_COMMAND.format(bedgraph=bedgraph_forward_filename,
                                                                    chrom_sizes=chrom_sizes_path,
                                                                    bigwig=forward_output))
         subprocess.check_call(bigwig_command_forward)
@@ -173,10 +224,19 @@ class StrandedCoverageCalculator(UnstrandedCoverageCalculator):
         chrom_sizes_path = get_chrom_sizes(genome)
         bedgraph_forward, bedgraph_reverse = self.write_bedgraph()
 
-        bigwig_command_forward = shlex.split(BIGWIG_COMMAND.format(bedgraph=bedgraph_forward.fn,
+        if self._check_chromosome_names(chrom_sizes_path):
+            bedgraph_forward_filename = bedgraph_forward.fn
+            bedgraph_reverse_filename = bedgraph_reverse.fn
+        else:
+            bedgraph_forward_filename = os.path.join(self.output_path, 'forward_ucsc.bedgraph')
+            bedgraph_reverse_filename = os.path.join(self.output_path, 'reverse_ucsc.bedgraph')
+            translate_bedgraph(bedgraph_forward, bedgraph_forward_filename, chrom_sizes_path)
+            translate_bedgraph(bedgraph_reverse, bedgraph_reverse_filename, chrom_sizes_path)
+
+        bigwig_command_forward = shlex.split(BIGWIG_COMMAND.format(bedgraph=bedgraph_forward_filename,
                                                                    chrom_sizes=chrom_sizes_path,
                                                                    bigwig=forward_output))
-        bigwig_command_reverse = shlex.split(BIGWIG_COMMAND.format(bedgraph=bedgraph_reverse.fn,
+        bigwig_command_reverse = shlex.split(BIGWIG_COMMAND.format(bedgraph=bedgraph_reverse_filename,
                                                                    chrom_sizes=chrom_sizes_path,
                                                                    bigwig=reverse_output))
         subprocess.check_call(bigwig_command_forward)
