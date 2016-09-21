@@ -6,6 +6,7 @@ import sys
 # ensure that PYTHONPATH includes the atg directory
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 import atg.ucsc.track
+import atg.quantification.coverage
 
 
 if __name__ == '__main__':
@@ -14,6 +15,7 @@ if __name__ == '__main__':
     subparsers.required = True
 
     atg.ucsc.track.setup_subparsers(subparsers)
+    atg.quantification.coverage.setup_subparsers(subparsers)
 
     args = parser.parse_args()
     args.func(args)

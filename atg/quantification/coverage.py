@@ -30,8 +30,11 @@ def get_chrom_sizes(genome):
     return os.path.abspath(chrom_sizes_path)
 
 
-def get_genome_coverage(filename, scale):
-    return pybedtools.BedTool(filename).genome_coverage(bg=True, split=True, scale=scale).sort()
+def get_genome_coverage(filename, scale, all_positions=False):
+    if all_positions:
+        return pybedtools.BedTool(filename).genome_coverage(bga=True, split=True, scale=scale).sort()
+    else:
+        return pybedtools.BedTool(filename).genome_coverage(bg=True, split=True, scale=scale).sort()
 
 
 def prepend_chr(bedtool_feature):
@@ -93,19 +96,25 @@ class UnstrandedCoverageCalculator:
         if self.is_paired:
             self.mapped_read_count //= 2
 
-    def write_bedgraph(self, forward_output=None, reverse_output=None, use_multiprocessing=False):
+    def write_bedgraph(self, forward_output=None, reverse_output=None, use_multiprocessing=False, scale=True,
+                       all_positions=False):
         """
 
         :return:
         :param forward_output:
         :param reverse_output:
         :param use_multiprocessing:
+        :param scale:
+        :param all_positions:
         :return:
         """
 
         # scale coverage by million mapped reads/fragments
-        scale_factor = RPMM_SCALE_FACTOR / self.mapped_read_count
-        bedgraph_forward = get_genome_coverage(self.forward_strand_filename, scale_factor)
+        if scale:
+            scale_factor = RPMM_SCALE_FACTOR / self.mapped_read_count
+        else:
+            scale_factor = 1.0
+        bedgraph_forward = get_genome_coverage(self.forward_strand_filename, scale_factor, all_positions)
 
         if forward_output:
             bedgraph_forward.moveto(forward_output)
@@ -192,20 +201,26 @@ class StrandedCoverageCalculator(UnstrandedCoverageCalculator):
         forward_strand.close()
         reverse_strand.close()
 
-    def write_bedgraph(self, forward_output=None, reverse_output=None, use_multiprocessing=False):
+    def write_bedgraph(self, forward_output=None, reverse_output=None, use_multiprocessing=False, scale=True,
+                       all_positions=False):
         """
 
         :return:
         :param forward_output:
         :param reverse_output:
         :param use_multiprocessing:
+        :param scale:
+        :param all_positions:
         :return:
         """
 
         # scale coverage by million mapped reads/fragments
-        scale_factor = RPMM_SCALE_FACTOR/self.mapped_read_count
-
-        task_list = [(self.forward_strand_filename, scale_factor), (self.reverse_strand_filename, -scale_factor)]
+        if scale:
+            scale_factor = RPMM_SCALE_FACTOR/self.mapped_read_count
+        else:
+            scale_factor = 1.0
+        task_list = [(self.forward_strand_filename, scale_factor, all_positions),
+                     (self.reverse_strand_filename, -scale_factor, all_positions)]
 
         if use_multiprocessing:
             with multiprocessing.Pool() as pool:
@@ -244,3 +259,35 @@ class StrandedCoverageCalculator(UnstrandedCoverageCalculator):
 
     def __del__(self):
         pybedtools.cleanup()
+
+
+def generate_bedgraph(namespace):
+    bam_filename = namespace.bam_filename
+    output_filename_list = namespace.output_filename
+    scale = namespace.scale
+    all_positions = namespace.all
+
+    if len(output_filename_list) == 1:
+        calculator = UnstrandedCoverageCalculator(bam_filename)
+        calculator.write_bedgraph(output_filename_list[0], scale=scale, all_positions=all_positions)
+    elif len(output_filename_list) == 2:
+        calculator = StrandedCoverageCalculator(bam_filename)
+        calculator.write_bedgraph(output_filename_list[0], output_filename_list[1], scale=scale,
+                                  all_positions=all_positions)
+    else:
+        print("Please enter only 1 or 2 filenames.")
+        return
+
+def setup_subparsers(subparsers):
+    coverage_parser = subparsers.add_parser('coverage', help='Generate a bedgraph from a BAM file.')
+
+    coverage_parser.add_argument('bam_filename', help="STAR-mapped BAM file")
+    coverage_parser.add_argument('output_filename', nargs='+',
+                                 help="Name(s) for output bedgraph file(s). If one filename is given, output will be "
+                                      "unstranded. If two filenames are given, the first will contain the positive"
+                                      "strand and the second will contain the negative strand.")
+    coverage_parser.add_argument('-s', '--scale', action='store_true', help="Scale coverage by million mapped reads")
+    coverage_parser.add_argument('-a', '--all', action='store_true', help="Include all positions in bedgraph output"
+                                                                          "(i.e., positions without coverage).")
+
+    coverage_parser.set_defaults(func=generate_bedgraph)
