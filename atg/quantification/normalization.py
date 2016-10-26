@@ -1,7 +1,9 @@
 import pandas
 import numpy as np
 
+# TODO: implement simple cpm normalization
 # TODO: implement DESeq normalization (relative log expression)
+
 
 def _tmm_norm_factor_single(obs, ref, log_ratio_trim=0.3, sum_trim=0.05, weighting=True, a_cutoff=-1e10):
     if all(obs == ref):
@@ -57,6 +59,8 @@ def tmm_norm_factor(count_df):
 
     return final_sf_tmm
 
-count = pandas.read_csv("/Users/mchang/CloudStation/Misc Projects/Limma test/data/count_GRCh38_name.csv", index_col=0)
-print(tmm_norm_factor(count))
+# print(tmm_norm_factor(count))
 # tmm normalized counts = count / (library size * normalization factor)
+# In all the downstream code, the lib.size and norm.factors are
+# multiplied together to act as the effective library size; this
+# (product) would be similar to DESeq's size factor.
