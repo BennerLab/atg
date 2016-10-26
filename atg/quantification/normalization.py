@@ -1,8 +1,12 @@
 import pandas
 import numpy as np
 
-# TODO: implement simple cpm normalization
 # TODO: implement DESeq normalization (relative log expression)
+
+
+def cpm_normalization(count_df):
+    normalized_df = count_df.div(count_df.sum()) * 10**6
+    return normalized_df
 
 
 def _tmm_norm_factor_single(obs, ref, log_ratio_trim=0.3, sum_trim=0.05, weighting=True, a_cutoff=-1e10):
@@ -59,7 +63,39 @@ def tmm_norm_factor(count_df):
 
     return final_sf_tmm
 
-# print(tmm_norm_factor(count))
+
+def tmm_normalization(count_df):
+    norm_factor = tmm_norm_factor(count_df)
+    normalized_df = count_df.div(count_df.sum() * norm_factor) * 10**6
+    return normalized_df
+
+
+def normalize_counts(namespace):
+    count_df = pandas.read_csv(namespace.count_filename, index_col=namespace.index, delimiter=namespace.delimiter)
+    if namespace.method == 'TMM':
+        normalized_df = tmm_normalization(count_df)
+
+    elif namespace.method == 'CPM':
+        normalized_df = cpm_normalization(count_df)
+
+    normalized_df.to_csv(namespace.output_filename, sep=namespace.delimiter)
+
+
+def setup_subparsers(subparsers):
+    normalization_parser = subparsers.add_parser('normalize', help='Normalize read counts')
+
+    normalization_parser.add_argument('count_filename', help="delimited file containing read counts")
+    normalization_parser.add_argument('output_filename', help="")
+    normalization_parser.add_argument('-m', '--method', default="TMM", choices=['TMM', 'CPM'],
+                                      help="TMM: weighted Trimmed Mean of M-values; "
+                                           "CPM: Counts Per Million reads")
+    normalization_parser.add_argument('-i', '--index', default=0, type=int,
+                                      help="numerical position of the ID column")
+    normalization_parser.add_argument('-d', '--delimiter', default=",", help='Text delimiter, e.g. ","')
+
+    normalization_parser.set_defaults(func=normalize_counts)
+
+
 # tmm normalized counts = count / (library size * normalization factor)
 # In all the downstream code, the lib.size and norm.factors are
 # multiplied together to act as the effective library size; this
