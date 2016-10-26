@@ -1,8 +1,9 @@
 import pandas
 import numpy as np
 
+# TODO: implement DESeq normalization (relative log expression)
 
-def tmm_size_factor_single(obs, ref, log_ratio_trim=0.3, sum_trim=0.05, weighting=True, a_cutoff=-1e10):
+def _tmm_norm_factor_single(obs, ref, log_ratio_trim=0.3, sum_trim=0.05, weighting=True, a_cutoff=-1e10):
     if all(obs == ref):
         return 1
 
@@ -37,7 +38,7 @@ def tmm_size_factor_single(obs, ref, log_ratio_trim=0.3, sum_trim=0.05, weightin
         return 2 ** (lr[k].mean())
 
 
-def tmm_size_factor(count_df):
+def tmm_norm_factor(count_df):
     count_nonzero = (count_df.where(count_df > 0)
                      .dropna(how="all").fillna(0))
 
@@ -49,7 +50,7 @@ def tmm_size_factor(count_df):
 
     sf = y.div(np.exp(np.mean(np.log(y))))
     ref_index = (sf-sf.mean()).abs().idxmin()
-    sf_tmm = count_nonzero.apply(tmm_size_factor_single, ref=count_nonzero.ix[:, ref_index])
+    sf_tmm = count_nonzero.apply(_tmm_norm_factor_single, ref=count_nonzero.ix[:, ref_index])
 
     # adjust size factors to multiply to 1
     final_sf_tmm = sf_tmm / np.exp(np.mean(np.log(sf_tmm)))
@@ -57,4 +58,5 @@ def tmm_size_factor(count_df):
     return final_sf_tmm
 
 count = pandas.read_csv("/Users/mchang/CloudStation/Misc Projects/Limma test/data/count_GRCh38_name.csv", index_col=0)
-print(tmm_size_factor(count))
+print(tmm_norm_factor(count))
+# tmm normalized counts = count / (library size * normalization factor)
