@@ -1,8 +1,6 @@
 import pandas
 import numpy as np
 
-# TODO: implement DESeq normalization (relative log expression)
-
 
 def cpm_normalization(count_df):
     normalized_df = count_df.div(count_df.sum()) * 10**6
@@ -109,6 +107,25 @@ def voom(count_df):
     return log_count_df
 
 
+def rle_normalization(count_df):
+    """
+    normalization by relative log expression, as implemented in DESeq2.
+
+    :param count_df:
+    :return:
+    """
+
+    log_count_df = count_df.apply(np.log)
+
+    size_factor = (log_count_df
+                   .subtract(log_count_df.mean(axis=1), axis=0)
+                   .replace([np.inf, -np.inf], np.nan)
+                   .median()
+                   .apply(np.exp))
+
+    return count_df.div(size_factor, axis=1)
+
+
 def normalize_counts(namespace):
     count_df = pandas.read_csv(namespace.count_filename, index_col=namespace.index, delimiter=namespace.delimiter)
     if namespace.method == 'TMM':
@@ -119,6 +136,9 @@ def normalize_counts(namespace):
 
     elif namespace.method == 'voom':
         normalized_df = voom(count_df)
+
+    elif namespace.method == 'RLE':
+        normalized_df = rle_normalization(count_df)
 
     else:
         normalized_df = count_df
@@ -134,7 +154,8 @@ def setup_subparsers(subparsers):
     normalization_parser.add_argument('-m', '--method', default="TMM", choices=['TMM', 'CPM', 'voom'],
                                       help="TMM: weighted Trimmed Mean of M-values; "
                                            "CPM: Counts Per Million reads"
-                                           "voom: log2 count after TMM")
+                                           "voom: log2 count after TMM"
+                                           "RLE: Relative Log Expression")
     normalization_parser.add_argument('-i', '--index', default=0, type=int,
                                       help="numerical position of the ID column")
     normalization_parser.add_argument('-d', '--delimiter', default=",", help='Text delimiter, e.g. ","')
