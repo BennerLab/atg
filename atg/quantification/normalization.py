@@ -126,6 +126,25 @@ def rle_normalization(count_df):
     return count_df.div(size_factor, axis=1)
 
 
+def vst_transformation(count_df, asymptotic_dispersion=0.01, extra_poisson=3.0):
+    """
+    apply a variance stabilizing transformation to a count matrix, as in DESeq2.
+
+    :param count_df:
+    :param asymptotic_dispersion: aka "a0"
+    :param extra_poisson: aka "a1"
+    :return:
+    """
+
+    normalized_count_df = rle_normalization(count_df)
+
+    return (np.log((1 + extra_poisson + 2 * asymptotic_dispersion * normalized_count_df +
+                    2 * np.sqrt(asymptotic_dispersion * normalized_count_df *
+                        (1 + extra_poisson + asymptotic_dispersion * normalized_count_df)))
+                    / (4 * asymptotic_dispersion))
+            / np.log(2))
+
+
 def normalize_counts(namespace):
     count_df = pandas.read_csv(namespace.count_filename, index_col=namespace.index, delimiter=namespace.delimiter)
     if namespace.method == 'TMM':
@@ -139,6 +158,9 @@ def normalize_counts(namespace):
 
     elif namespace.method == 'RLE':
         normalized_df = rle_normalization(count_df)
+
+    elif namespace.method == 'VST':
+        normalized_df = vst_transformation(count_df)
 
     else:
         normalized_df = count_df
@@ -155,15 +177,10 @@ def setup_subparsers(subparsers):
                                       help="TMM: weighted Trimmed Mean of M-values; "
                                            "CPM: Counts Per Million reads"
                                            "voom: log2 count after TMM"
-                                           "RLE: Relative Log Expression")
+                                           "RLE: Relative Log Expression"
+                                           "VST: Variance Stabilizing Transformation")
     normalization_parser.add_argument('-i', '--index', default=0, type=int,
                                       help="numerical position of the ID column")
     normalization_parser.add_argument('-d', '--delimiter', default=",", help='Text delimiter, e.g. ","')
 
     normalization_parser.set_defaults(func=normalize_counts)
-
-
-# tmm normalized counts = count / (library size * normalization factor)
-# In all the downstream code, the lib.size and norm.factors are
-# multiplied together to act as the effective library size; this
-# (product) would be similar to DESeq's size factor.
