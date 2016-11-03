@@ -6,3 +6,4 @@ pyyaml
 nose
 numpy
 pandas
+statsmodels
