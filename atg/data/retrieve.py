@@ -112,5 +112,4 @@ class ATGDataTracker:
 
 if __name__ == '__main__':
     tracker = ATGDataTracker()
-    tracker.retrieve_data('hg38', overwrite=False)
-    tracker.retrieve_data('mm10', overwrite=False)
+    tracker.retrieve_data('rheMac8', overwrite=False)

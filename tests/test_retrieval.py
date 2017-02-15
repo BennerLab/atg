@@ -23,7 +23,7 @@ class RetrievalTest(unittest.TestCase):
                 # at least 10 genes should be present
                 self.assertGreater(gene_df.shape[0], 10)
                 # the XML file restricts retrievals to chromosome Y
-                self.assertEqual(gene_df['Chromosome Name'][0], 'Y')
+                self.assertEqual(gene_df['Chromosome/scaffold name'][0], 'Y')
 
     def test_url_fetch(self):
         with tempfile.TemporaryDirectory() as working_directory:
