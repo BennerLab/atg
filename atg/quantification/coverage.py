@@ -22,7 +22,8 @@ def get_chrom_sizes(genome):
     :param genome: a UCSC genome abbreviation, e.g. hg19
     :return: absolute path to chromosome sizes for specified genome
     """
-    genome_dict = {'hg19': 'human', 'hg38': 'human', 'mm10': 'mouse', 'mm9': 'mouse', 'papAnu2': 'baboon'}
+    genome_dict = {'hg19': 'human', 'hg38': 'human', 'mm10': 'mouse', 'mm9': 'mouse', 'papAnu2': 'baboon',
+                   'rheMac8': 'macaque'}
     data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
     chrom_sizes_path = os.path.join(data_root, genome_dict[genome], 'Current', genome,
                                     'chrom.sizes')
@@ -291,3 +292,4 @@ def setup_subparsers(subparsers):
                                                                           "(i.e., positions without coverage).")
 
     coverage_parser.set_defaults(func=generate_bedgraph)
+
