@@ -23,6 +23,7 @@ GENOME_FILES = [
     'ensembl_gene_transcript.csv',     # Ensembl gene <-> transcript ID
     'ensembl_transcript.csv'           # Ensembl transcript information
 ]
+BINARY_CHUNKSIZE = 2**30
 
 
 def fetch_ensembl(xml_string, output_filename):
@@ -54,7 +55,18 @@ def fetch_url(url, path, overwrite=False):
     if url.endswith('.gz'):
         response = urllib.request.urlopen(url)
         with open(path, 'wb') as output_file:
-            output_file.write(gzip.decompress(response.read()))
+            if sys.platform == 'darwin':
+                # write output in chunks to avoid bug in MacOS [https://bugs.python.org/issue24658]
+                binary_result = gzip.decompress(response.read())
+                result_length = len(binary_result)
+                chunk_start = 0
+
+                while chunk_start < result_length:
+                    chunk_end = min(result_length, chunk_start+BINARY_CHUNKSIZE)
+                    output_file.write(binary_result[chunk_start:chunk_end])
+                    chunk_start = chunk_end
+            else:
+                output_file.write(gzip.decompress(response.read()))
 
     # download uncompressed files directly
     else:
@@ -86,6 +98,9 @@ class ATGDataTracker:
             self.genome_path[genome_id] = current_genome_path
             os.makedirs(current_genome_path, exist_ok=True)
 
+    def check_annotation(self, organism):
+        return organism in self.genome_path
+
     def retrieve_data(self, genome, overwrite=False):
         """
         Fetch all data files for a specified genome
@@ -95,7 +110,7 @@ class ATGDataTracker:
         :return:
         """
 
-        if genome not in self.genome_path:
+        if not self.check_annotation(genome):
             print('%s is not an available genome.' % genome, file=sys.stderr)
             return False
 
@@ -110,6 +125,22 @@ class ATGDataTracker:
                 fetch_url(current_url, current_path, overwrite=overwrite)
 
 
-if __name__ == '__main__':
+def retrieve_data(namespace):
     tracker = ATGDataTracker()
-    tracker.retrieve_data('rheMac8', overwrite=False)
+
+    if not tracker.check_annotation(namespace.organism):
+        print('%s genome information is not available.\n' % namespace.organism, file=sys.stderr)
+        print("The following organisms are available:", file=sys.stderr)
+        for organism in sorted(tracker.genome_path.keys()):
+            print("\t%s" % organism, file=sys.stderr)
+        print('', file=sys.stderr)
+    else:
+        tracker.retrieve_data(namespace.organism, namespace.overwrite)
+
+
+def setup_subparsers(subparsers):
+    retrieval_parser = subparsers.add_parser('data', help="Retrieve genome sequences and related information")
+    retrieval_parser.add_argument('organism', help="a UCSC genome code, e.g. hg38\n"
+                                                   "in the future, this will likely change to a common name")
+    retrieval_parser.add_argument('-o', '--overwrite', action="store_true", help="Overwrite existing files")
+    retrieval_parser.set_defaults(func=retrieve_data)
