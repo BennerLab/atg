@@ -17,8 +17,13 @@ install:
   - source activate test-environment
 
 before_script:
+  - "export DISPLAY=:99.0"
+  - "sh -e /etc/init.d/xvfb start"
+  - sleep 3
   - cp ATGConfig.txt.template ATGConfig.txt
   - mkdir -p ~/ATGData/human/Current/hg38
   - cp tests/data/hg38_chrom.sizes ~/ATGData/human/Current/hg38/chrom.sizes
+  - wget -O ~/ATGData/human/Current/hg38/gene_go.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/gene_go.csv
+  - wget -O ~/ATGData/human/Current/hg38/go_definition.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_definition.csv
 
 script: nosetests
