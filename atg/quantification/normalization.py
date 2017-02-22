@@ -3,6 +3,7 @@ import numpy as np
 import statsmodels
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+import warnings
 
 
 DEFAULT_ASYMPTOTIC_DISPERSION = 0.01
@@ -29,15 +30,19 @@ def _tmm_norm_factor_single(obs, ref, log_ratio_trim=0.3, sum_trim=0.05, weighti
     obs_sum = obs.sum()
     ref_sum = ref.sum()
 
-    # log ration of expression accounting for library size
-    lr = np.log2((obs / obs_sum) / (ref / ref_sum))
+    # ignore zero values so that log can be taken
+    nonzero_values = (obs != 0) & (ref != 0)
+    obs_nonzero = obs[nonzero_values]
+    ref_nonzero = ref[nonzero_values]
+
+    # log ratio of expression accounting for library size
+    lr = np.log2((obs_nonzero / obs_sum) / (ref_nonzero / ref_sum))
     # absolute expression
-    ae = (np.log2(obs / obs_sum) + np.log2(ref / ref_sum)) / 2
+    ae = (np.log2(obs_nonzero / obs_sum) + np.log2(ref_nonzero / ref_sum)) / 2
     # estimated asymptotic variance
-    v = (obs_sum - obs) / obs_sum / obs + (ref_sum - ref) / ref_sum / ref
-    # create mask
-    m = np.isfinite(lr) & np.isfinite(ae) & (ae > a_cutoff)
-    # drop the masked values
+    v = (obs_sum - obs_nonzero) / obs_sum / obs_nonzero + (ref_sum - ref_nonzero) / ref_sum / ref_nonzero
+    # just keep values that exceed the absolute expression threshold
+    m = ae > a_cutoff
     lr = lr[m]
     ae = ae[m]
     v = v[m]
@@ -98,7 +103,7 @@ def voom(count_df):
     """
 
     lib_size = count_df.sum() * tmm_norm_factor(count_df)
-    log_count_df = np.log2(count_df / (lib_size + 1) * 1e6)
+    log_count_df = np.log2((count_df + 0.5) / (lib_size + 1) * 1e6)
 
     # further calculations for modeling dispersion trend
     # row-wise mean and SD
@@ -179,8 +184,11 @@ def _fit_vst_parameters(count_df, sample_size=1000, min_mean_count=5.0, min_disp
     dispersion_fit_df = dispersion_for_fit.to_frame(name="dispersion").join(normalized_count_df.ix[:, 'baseMean'])
 
     formula = 'dispersion ~ I(1/baseMean)'
-    model = smf.glm(formula=formula, data=dispersion_fit_df,
-                    family=sm.families.Gamma(link=statsmodels.genmod.families.links.identity)).fit()
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', message="The identity link function does not respect the domain of the "
+                                                  "Gamma family.")
+        model = smf.glm(formula=formula, data=dispersion_fit_df,
+                        family=sm.families.Gamma(link=statsmodels.genmod.families.links.identity)).fit()
 
     return model.params
 
