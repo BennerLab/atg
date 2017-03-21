@@ -97,10 +97,10 @@ class ATGDataTracker:
         self.config.read(DATA_SOURCE_PATH)
         self.genome_path = {}
 
-        for genome_id in self.config.sections():
-            organism = self.config.get(genome_id, 'organism')
-            current_genome_path = os.path.join(self.data_root, organism, 'Current', genome_id)
-            self.genome_path[genome_id] = current_genome_path
+        for organism in self.config.sections():
+            ensembl_genome = self.config.get(organism, 'ensembl_genome')
+            current_genome_path = os.path.join(self.data_root, organism, ensembl_genome)
+            self.genome_path[organism] = current_genome_path
             os.makedirs(current_genome_path, exist_ok=True)
 
     def check_annotation(self, organism):
