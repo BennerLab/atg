@@ -14,14 +14,15 @@ import atg.data
 
 DATA_SOURCE_PATH = os.path.join(os.path.dirname(__file__), 'data_sources.ini')
 GENOME_FILES = [
-    'chrom.sizes',                     # UCSC chromosome sizes
-    'genome.fa',                       # Ensembl genome sequence
-    'genes.gtf',                       # Ensembl gene annotation
-    'gene_go.csv',                     # Ensembl gene <-> GO accession
-    'go_definition.csv',               # information for all GO terms
-    'ensembl_gene.csv',                # Ensembl gene information
-    'ensembl_gene_transcript.csv',     # Ensembl gene <-> transcript ID
-    'ensembl_transcript.csv'           # Ensembl transcript information
+    'chrom.sizes',                      # UCSC chromosome sizes
+    'genome.fa',                        # Ensembl genome sequence
+    'genes.gtf',                        # Ensembl gene annotation
+    'gene_go.csv',                      # Ensembl gene <-> GO accession
+    'go_definition.csv',                # information for all GO terms
+    'ensembl_gene.csv',                 # Ensembl gene information
+    'ensembl_gene_homology_human.csv',  # Homology information with Human
+    'ensembl_gene_transcript.csv',      # Ensembl gene <-> transcript ID
+    'ensembl_transcript.csv'            # Ensembl transcript information
 ]
 BINARY_CHUNKSIZE = 2**30
 
@@ -51,8 +52,12 @@ def fetch_url(url, path, overwrite=False):
     if not overwrite and os.path.exists(path):
         return False
 
+    # skip empty URLs, e.g. human homologs for human genome data
+    if url == '':
+        pass
+
     # for compressed files, make sure to decompress before writing to disk
-    if url.endswith('.gz'):
+    elif url.endswith('.gz'):
         response = urllib.request.urlopen(url)
         with open(path, 'wb') as output_file:
             if sys.platform == 'darwin':
