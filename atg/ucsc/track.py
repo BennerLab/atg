@@ -113,8 +113,10 @@ class HubBuilder:
         scale = self.hub_config.get('scale', 'auto')
         if scale == 'auto':
             self.autoscale = 'on'
+            self.scale = DEFAULT_TRACK_Y_LIMIT
         else:
             self.autoscale = 'off'
+            self.scale = scale
 
     def make_output_structure(self, overwrite=False):
         output_path = os.path.join(self.base_output_path, self.genome)
@@ -140,12 +142,12 @@ class HubBuilder:
             if self.library == 'unstranded':
                 trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
                                                          ymin=0,
-                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         ymax=self.scale,
                                                          autoscale=self.autoscale))
             elif self.library == 'rf':
                 trackDb_output.write(HUB_TOPLEVEL.format(hub=self.hub,
-                                                         ymin=-1 * DEFAULT_TRACK_Y_LIMIT,
-                                                         ymax=DEFAULT_TRACK_Y_LIMIT,
+                                                         ymin=-1 * self.scale,
+                                                         ymax=self.scale,
                                                          autoscale=self.autoscale))
             else:
                 print('Library type not recognized, should be either "unstranded" or "rf"')
@@ -264,8 +266,8 @@ def setup_hub(namespace):
     print('genome:', namespace.genome)
     print('path:', namespace.path)
     print('library:', namespace.library)
-    if namespace.fixed_scale:
-        print('scale: fixed')
+    if namespace.fixed_scale != 0:
+        print('scale: %d' % namespace.fixed_scale)
     else:
         print('scale: auto')
     print('multitracks:')
@@ -301,8 +303,8 @@ def setup_subparsers(subparsers):
     setup_hub_parser.add_argument('-p', '--path', help="Path for hub output", default="PATH")
     setup_hub_parser.add_argument('-l', '--library', help="Strand specificity of sequencing library",
                                   choices=['unstranded', 'rf'], default='rf')
-    setup_hub_parser.add_argument('-f', '--fixed_scale', help="Use a fixed y scale (auto-scale by default)",
-                                  action="store_true")
+    setup_hub_parser.add_argument('-f', '--fixed_scale', help="Use a fixed y scale (auto-scale [0] by default)",
+                                  default=0, type=int)
     setup_hub_parser.set_defaults(func=setup_hub)
 
     # New organization of existing bigwig files
