@@ -160,8 +160,7 @@ class ReadAlignmentHelper:
 
         else:
             for command in command_list:
-                print(shlex.split(command))
-                # subprocess.run(shlex.split(command), shell=True, stderr=subprocess.STDOUT)
+                subprocess.run(args=shlex.split(command), env=os.environ.copy())
 
         return True
 
