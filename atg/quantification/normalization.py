@@ -222,6 +222,12 @@ def vst_transformation(count_df, asymptotic_dispersion=None, extra_poisson=None)
             / np.log(2))
 
 
+def fpkm(count_df, length_df):
+    fpm_df = count_df.div(count_df.sum()/10**6)
+    fpkm_df = fpm_df.div(length_df.iloc[:,0]/1000, axis="index")
+    return fpkm_df
+
+
 def normalize_counts(namespace):
     count_df = pandas.read_csv(namespace.count_filename, index_col=namespace.index, delimiter=namespace.delimiter)
     if namespace.method == 'tmm':
@@ -239,6 +245,14 @@ def normalize_counts(namespace):
     elif namespace.method == 'vst':
         normalized_df = vst_transformation(count_df)
 
+    elif namespace.method == 'fpkm':
+        if not namespace.length:
+            print("FPKM calculation requires the --length option\n")
+            return 
+
+        length_df = pandas.read_csv(namespace.length, header=None, index_col=0)
+        normalized_df = fpkm(count_df, length_df)
+
     else:
         normalized_df = count_df
 
@@ -250,14 +264,17 @@ def setup_subparsers(subparsers):
 
     normalization_parser.add_argument('count_filename', help="delimited file containing read counts")
     normalization_parser.add_argument('output_filename', help="")
-    normalization_parser.add_argument('-m', '--method', default="TMM", choices=['tmm', 'cpm', 'voom', 'rle', 'vst'],
+    normalization_parser.add_argument('-m', '--method', default="TMM", choices=['tmm', 'cpm', 'voom', 'rle', 'vst', 'fpkm'],
                                       help="tmm: weighted Trimmed Mean of M-values; "
                                            "cpm: Counts Per Million reads"
                                            "voom: log2 count after TMM"
                                            "rle: Relative Log Expression"
-                                           "vst: Variance Stabilizing Transformation")
+                                           "vst: Variance Stabilizing Transformation"
+                                           "fpkm: Fragment Per Kilobase of exon per Million mapped reads")
     normalization_parser.add_argument('-i', '--index', default=0, type=int,
                                       help="numerical position of the ID column")
+    normalization_parser.add_argument('-l', '--length', help='a headerless CSV file containing an ID column '
+                                                             'followed by gene/transcript length')
     normalization_parser.add_argument('-d', '--delimiter', default=",", help='Text delimiter, e.g. ","')
 
     normalization_parser.set_defaults(func=normalize_counts)
