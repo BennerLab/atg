@@ -35,7 +35,7 @@ class EnsemblSpecies:
         """
 
         if sum(self.ensembl_species_df.species.isin([species])) == 0:
-            return {}
+            return {'species': species}
 
         # pull out first matching record
         ensembl_record = self.ensembl_species_df.ix[self.ensembl_species_df['species'] == species].iloc[0]
@@ -83,7 +83,23 @@ class EnsemblSpecies:
 
             ftp.close()
 
-        return {'genome': genome_location, 'annotation': annotation_location, 'version': genome_assembly_version}
+        return {'species': species, 'genome': genome_location, 'annotation': annotation_location,
+                'version': genome_assembly_version}
+
+    def collect_species_information(self, species_list):
+        """
+        Given a list of species names, create a dataframe containing all information
+        :param species_list:
+        :return: dataframe
+        """
+
+        record_list = []
+
+        for species in species_list:
+            record_list.append(self.get_species_information(species))
+
+        return pandas.DataFrame.from_records(record_list)
+
 
 
 if __name__ == '__main__':
