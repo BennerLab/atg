@@ -45,6 +45,15 @@ class RetrievalTest(unittest.TestCase):
 
 
 class EnsemblGenomesTest(unittest.TestCase):
+    def setUp(self):
+        self.ensembl_genomes = atg.data.ensembl.EnsemblSpecies()
+
+    def test_ensembl_table_read(self):
+        corn_record = self.ensembl_genomes.ensembl_species_df.ix[self.ensembl_genomes.ensembl_species_df['species'] ==
+                                                                 'zea_mays']
+        self.assertEqual(corn_record.shape[0], 1)
+        self.assertEqual(corn_record.iloc[0]['division'], 'EnsemblPlants')
+
     def test_species_information(self):
         bee_information = {'annotation': 'pub/current/metazoa/gtf/apis_mellifera/Apis_mellifera.'
                                          'GCA_000002195.1.35.gtf.gz',
@@ -64,7 +73,7 @@ class EnsemblGenomesTest(unittest.TestCase):
                                               'agaricus_bisporus_var_bisporus_h97/Agaricus_bisporus_var_bisporus_h97.'
                                               'Agabi_varbisH97_2.35.gtf.gz'}
 
-        self.assertDictEqual(atg.data.ensembl.get_species_information('zea_mays'), corn_information)
-        self.assertDictEqual(atg.data.ensembl.get_species_information('apis_mellifera'), bee_information)
-        self.assertDictEqual(atg.data.ensembl.get_species_information('agaricus_bisporus_var_bisporus_h97'),
+        self.assertDictEqual(self.ensembl_genomes.get_species_information('zea_mays'), corn_information)
+        self.assertDictEqual(self.ensembl_genomes.get_species_information('apis_mellifera'), bee_information)
+        self.assertDictEqual(self.ensembl_genomes.get_species_information('agaricus_bisporus_var_bisporus_h97'),
                              mushroom_information)
