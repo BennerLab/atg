@@ -17,6 +17,9 @@ ENSEMBL_GTF_BASE_LOCATION = string.Template('pub/current/$division/gtf$collectio
 
 class EnsemblSpecies:
     """
+    A class for fetching and managing species data from Ensembl Genomes, which include many organisms not found on
+    the main Ensembl site. Files for these organisms are stored in individual subfolders in e.g.
+    ~/ATGData/ensemblgenomes/.
 
     """
 
@@ -100,6 +103,26 @@ class EnsemblSpecies:
 
         return pandas.DataFrame.from_records(record_list)
 
+    def retrieve_species_data(self, species):
+        """
+        Download data from Ensembl.
+        :param species:
+        :return: True if successful
+        """
+
+        species_information = self.get_species_information(species)
+        if len(species_information) == 1:
+            return False
+
+        ensembl_species_path = os.path.join(self.data_root, 'ensemblgenomes', species)
+        os.makedirs(ensembl_species_path, exist_ok=True)
+        for filetype in ('genome', 'annotation'):
+            filename = os.path.split(species_information[filetype])[-1]
+            ensembl_url = 'ftp://ftp.ensemblgenomes.org/' + species_information[filetype]
+            output_filename = os.path.join(ensembl_species_path, filename)
+            atg.data.retrieve.fetch_url(ensembl_url, output_filename)
+
+        return True
 
 
 if __name__ == '__main__':

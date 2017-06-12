@@ -89,3 +89,7 @@ class EnsemblGenomesTest(unittest.TestCase):
                                                     self.mushroom_information])
         species_list = ['apis_mellifera', 'zea_mays', 'agaricus_bisporus_var_bisporus_h97']
         self.assertTrue(species_df.equals(self.ensembl_genomes.collect_species_information(species_list)))
+
+    def test_retrieval(self):
+        self.assertFalse(self.ensembl_genomes.retrieve_species_data('homo_sapiens'))
+        self.assertTrue(self.ensembl_genomes.retrieve_species_data('agaricus_bisporus_var_bisporus_h97'))
