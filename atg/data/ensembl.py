@@ -3,6 +3,7 @@ Find species data in Ensembl, recording genome and annotation URLs.
 """
 
 import os
+import sys
 import pandas
 import ftplib
 import string
@@ -125,5 +126,34 @@ class EnsemblSpecies:
         return True
 
 
-if __name__ == '__main__':
-    pass
+def retrieve_ensembl_species(namespace):
+    # get list of species from file or namespace
+    if namespace.list:
+        species_list = pandas.read_csv(namespace.species_name[0], index_col=False, header=None).iloc[:, 0].tolist()
+    else:
+        species_list = namespace.species_name
+
+    tracker = EnsemblSpecies()
+    # output species information as table, or download
+    if namespace.table:
+        species_df = tracker.collect_species_information(species_list)
+        species_df.to_csv(sys.stdout, sep="\t", index=False, columns=['species', 'genome', 'annotation', 'version'])
+    else:
+        for species in species_list:
+            retrieval_success = tracker.retrieve_species_data(species)
+            if retrieval_success:
+                print('%s retrieved successfully.' % species)
+            else:
+                print('%s information not retrieved.' % species)
+
+
+def setup_subparsers(subparsers):
+    retrieval_parser = subparsers.add_parser('species', help="Retrieve genome sequences and related information")
+    retrieval_parser.add_argument('species_name', nargs="+",
+                                  help="one or more genus/species for an organism in Ensembl, e.g. zea_mays")
+    retrieval_parser.add_argument('-l', '--list', action="store_true", help="species are provided in a text file given"
+                                                                            "as the only argument")
+    retrieval_parser.add_argument('-t', '--table', action="store_true",
+                                  help="instead of downloading data, write the species information to stdout")
+    # retrieval_parser.add_argument('-o', '--overwrite', action="store_true", help="Overwrite existing files")
+    retrieval_parser.set_defaults(func=retrieve_ensembl_species)
