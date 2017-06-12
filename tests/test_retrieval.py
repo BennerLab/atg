@@ -3,6 +3,7 @@ import unittest
 import tempfile
 import pandas
 import atg.data.retrieve
+import atg.data.ensembl
 
 UCSC_GZIPPED_FILE = 'http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.agp.gz'
 UCSC_CHROMOSOME_SIZE_FILE = 'http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes'
@@ -41,3 +42,29 @@ class RetrievalTest(unittest.TestCase):
             chromosome_df = pandas.read_table(chromosome_filename, names=['chrom', 'size'])
             self.assertEqual(chromosome_df['chrom'][0], 'chr1')
             self.assertEqual(chromosome_df.shape[0], UCSC_CHROMOSOME_ENTRIES)
+
+
+class EnsemblGenomesTest(unittest.TestCase):
+    def test_species_information(self):
+        bee_information = {'annotation': 'pub/current/metazoa/gtf/apis_mellifera/Apis_mellifera.'
+                                         'GCA_000002195.1.35.gtf.gz',
+                           'version': 'GCA_000002195.1',
+                           'genome': 'pub/current/metazoa/fasta/apis_mellifera/dna/Apis_mellifera.'
+                                     'GCA_000002195.1.dna.toplevel.fa.gz'}
+
+        corn_information = {'annotation': 'pub/current/plants/gtf/zea_mays/Zea_mays.AGPv4.35.gtf.gz',
+                            'version': 'AGPv4',
+                            'genome': 'pub/current/plants/fasta/zea_mays/dna/Zea_mays.AGPv4.dna.toplevel.fa.gz'}
+
+        mushroom_information = {'genome': 'pub/current/fungi/fasta/fungi_basidiomycota1_collection/'
+                                          'agaricus_bisporus_var_bisporus_h97/dna/Agaricus_bisporus_var_bisporus_h97.'
+                                          'Agabi_varbisH97_2.dna.toplevel.fa.gz',
+                                'version': 'Agabi_varbisH97_2',
+                                'annotation': 'pub/current/fungi/gtf/fungi_basidiomycota1_collection/'
+                                              'agaricus_bisporus_var_bisporus_h97/Agaricus_bisporus_var_bisporus_h97.'
+                                              'Agabi_varbisH97_2.35.gtf.gz'}
+
+        self.assertDictEqual(atg.data.ensembl.get_species_information('zea_mays'), corn_information)
+        self.assertDictEqual(atg.data.ensembl.get_species_information('apis_mellifera'), bee_information)
+        self.assertDictEqual(atg.data.ensembl.get_species_information('agaricus_bisporus_var_bisporus_h97'),
+                             mushroom_information)
