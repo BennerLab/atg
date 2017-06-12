@@ -118,7 +118,7 @@ class EnsemblSpecies:
         ensembl_species_path = os.path.join(self.data_root, 'ensemblgenomes', species)
         os.makedirs(ensembl_species_path, exist_ok=True)
         for filetype in ('genome', 'annotation'):
-            filename = os.path.split(species_information[filetype])[-1]
+            filename = os.path.split(species_information[filetype])[-1].rstrip('.gz')  # remove .gz extension if present
             ensembl_url = 'ftp://ftp.ensemblgenomes.org/' + species_information[filetype]
             output_filename = os.path.join(ensembl_species_path, filename)
             atg.data.retrieve.fetch_url(ensembl_url, output_filename)
