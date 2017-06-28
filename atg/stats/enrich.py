@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 LOG_P_VALUE_MINIMUM = -40.0
 LOG10_FACTOR = 1.0 / numpy.log(10)
 
+GENE_COLUMN_LABEL_INDEX = 0
+GO_COLUMN_LABEL_INDEX = 1
 
 def enrichment_significance(term_row):
     return hypergeom.logsf(term_row['hit_count'], term_row['universe'], term_row['term_count'], term_row['list_size'])
@@ -36,23 +38,26 @@ class EnrichmentCalculator:
 
     def __init__(self, gene_term_file, term_definition_file, maximum_size=1000, minimum_size=3):
         # TODO: filter by evidence code
-        gene_term_df = (pandas.read_csv(gene_term_file)
-                        .dropna()
-                        .drop_duplicates(['Ensembl Gene ID', 'GO Term Accession']))
+        gene_term_df = pandas.read_csv(gene_term_file).dropna()
 
-        term_count = gene_term_df['GO Term Accession'].value_counts()
+        self.gene_column_label = gene_term_df.columns[GENE_COLUMN_LABEL_INDEX]
+        self.go_column_label = gene_term_df.columns[GO_COLUMN_LABEL_INDEX]
+
+        gene_term_df.drop_duplicates([self.gene_column_label, self.go_column_label], inplace=True)
+
+        term_count = gene_term_df[self.go_column_label].value_counts()
         relevant_terms = term_count[(term_count <= maximum_size) & (term_count >= minimum_size)]
 
-        self.gene_term_df = gene_term_df[gene_term_df['GO Term Accession'].isin(relevant_terms.index.values)]
-        self.term_count = self.gene_term_df['GO Term Accession'].value_counts()
-        self.universe = self.gene_term_df['Ensembl Gene ID'].nunique()
+        self.gene_term_df = gene_term_df[gene_term_df[self.go_column_label].isin(relevant_terms.index.values)]
+        self.term_count = self.gene_term_df[self.go_column_label].value_counts()
+        self.universe = self.gene_term_df[self.gene_column_label].nunique()
 
         self.term_description = pandas.read_csv(term_definition_file).dropna()
 
     def get_single_enrichment(self, gene_list, term, gene_universe=15000):
-        term_df = self.gene_term_df[self.gene_term_df['GO Term Accession'] == term]
+        term_df = self.gene_term_df[self.gene_term_df[self.go_column_label] == term]
         n = len(term_df)
-        x = sum(term_df['Ensembl Gene ID'].isin(gene_list))  # matched genes
+        x = sum(term_df[self.gene_column_label].isin(gene_list))  # matched genes
         N = len(gene_list)
 
         return hypergeom.logsf(x, gene_universe, n, N)
@@ -60,8 +65,8 @@ class EnrichmentCalculator:
     def get_all_enrichment(self, gene_list):
         enrichment_df = pandas.DataFrame()
         enrichment_df['term_count'] = self.term_count
-        enrichment_df['hit_count'] = (self.gene_term_df[self.gene_term_df['Ensembl Gene ID'].isin(gene_list)]
-                                                       ['GO Term Accession'].value_counts().astype(int))
+        enrichment_df['hit_count'] = (self.gene_term_df[self.gene_term_df[self.gene_column_label].isin(gene_list)]
+                                                       [self.go_column_label].value_counts().astype(int))
         enrichment_df.dropna(inplace=True)
 
         enrichment_df['universe'] = self.universe
@@ -86,10 +91,10 @@ class EnrichmentCalculator:
                 break
 
             most_enriched_term = most_enriched_term_row.name
-            print(most_enriched_term, self.term_description.loc[self.term_description['GO Term Accession'] == most_enriched_term, 'GO Term Name'])
+            print(most_enriched_term, self.term_description.loc[self.term_description[self.go_column_label] == most_enriched_term, 'GO Term Name'])
 
-            current_term_genes = self.gene_term_df.loc[self.gene_term_df['GO Term Accession'] == most_enriched_term,
-                                                       'Ensembl Gene ID']
+            current_term_genes = self.gene_term_df.loc[self.gene_term_df[self.go_column_label] == most_enriched_term,
+                                                       self.gene_column_label]
             # remove genes present in most enriched term
             current_gene_set.difference_update(current_term_genes.values)
             print(len(current_term_genes.values), len(current_gene_set))
