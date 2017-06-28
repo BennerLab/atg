@@ -34,13 +34,14 @@ def test_adjust_pvalue():
     bh_corrected_p_values_n25 = atg.stats.enrich.p_adjust_bh(sample_p_values, n=25)
     numpy.testing.assert_almost_equal(bh_corrected_p_values, bh_corrected_p_values_n25, decimal=4)
 
+
 class EnrichmentTest(unittest.TestCase):
     def setUp(self):
         data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
-        go_term_path = os.path.join(data_root, 'human', 'Current', 'hg38', 'gene_go.csv')
-        go_definition_path = os.path.join(data_root, 'human', 'Current', 'hg38', 'go_definition.csv')
+        go_term_path = os.path.join(data_root, 'human', 'GRCh38', 'gene_go.csv')
+        go_definition_path = os.path.join(data_root, 'human', 'GRCh38', 'go_definition.csv')
         self.calculator = atg.stats.enrich.EnrichmentCalculator(go_term_path, go_definition_path)
-        self.all_genes = self.calculator.gene_term_df['Ensembl Gene ID'].drop_duplicates()
+        self.all_genes = self.calculator.gene_term_df.ix[:, atg.stats.enrich.GENE_COLUMN_LABEL_INDEX].drop_duplicates()
 
     def test_single_term(self):
         good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + self.all_genes.sample(100).tolist()
