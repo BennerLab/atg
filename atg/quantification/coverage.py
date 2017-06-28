@@ -16,17 +16,19 @@ RPMM_SCALE_FACTOR = 10**6  # reads per million mapped reads
 # TODO: move get_chrom_sizes to some kind of data configuration module
 
 
-def get_chrom_sizes(genome):
+def get_chrom_sizes(ucsc_genome):
     """
 
-    :param genome: a UCSC genome abbreviation, e.g. hg19
+    :param ucsc_genome: a UCSC genome abbreviation, e.g. hg19
     :return: absolute path to chromosome sizes for specified genome
     """
-    genome_dict = {'hg19': 'human', 'hg38': 'human', 'mm10': 'mouse', 'mm9': 'mouse', 'papAnu2': 'baboon',
-                   'rheMac8': 'macaque'}
+    genome_dict = {'hg38': ('human', 'GRCh38'),
+                   'mm10': ('mouse', 'GRCm38'),
+                   'papAnu2': ('baboon', 'PapAnu2'),
+                   'rheMac8': ('macaque', 'Mmul_8.0.1')}
     data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
-    chrom_sizes_path = os.path.join(data_root, genome_dict[genome], 'Current', genome,
-                                    'chrom.sizes')
+    organism_name, genome_build = genome_dict[ucsc_genome]
+    chrom_sizes_path = os.path.join(data_root, organism_name, genome_build, 'chrom.sizes')
 
     return os.path.abspath(chrom_sizes_path)
 
