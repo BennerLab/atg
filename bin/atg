@@ -9,6 +9,7 @@ import atg.ucsc.track
 import atg.quantification.coverage
 import atg.quantification.normalization
 import atg.data.retrieve
+import atg.data.ensembl
 
 
 if __name__ == '__main__':
@@ -20,6 +21,7 @@ if __name__ == '__main__':
     atg.quantification.coverage.setup_subparsers(subparsers)
     atg.quantification.normalization.setup_subparsers(subparsers)
     atg.data.retrieve.setup_subparsers(subparsers)
+    atg.data.ensembl.setup_subparsers(subparsers)
 
     args = parser.parse_args()
     args.func(args)

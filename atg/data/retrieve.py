@@ -50,6 +50,7 @@ def fetch_url(url, path, overwrite=False):
     :return:
     """
     if not overwrite and os.path.exists(path):
+        print('The file %s already exists, so %s was not downloaded.' % (path, url))
         return False
 
     # skip empty URLs, e.g. human homologs for human genome data

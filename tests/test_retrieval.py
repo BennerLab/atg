@@ -3,6 +3,7 @@ import unittest
 import tempfile
 import pandas
 import atg.data.retrieve
+import atg.data.ensembl
 
 UCSC_GZIPPED_FILE = 'http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.agp.gz'
 UCSC_CHROMOSOME_SIZE_FILE = 'http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes'
@@ -41,3 +42,54 @@ class RetrievalTest(unittest.TestCase):
             chromosome_df = pandas.read_table(chromosome_filename, names=['chrom', 'size'])
             self.assertEqual(chromosome_df['chrom'][0], 'chr1')
             self.assertEqual(chromosome_df.shape[0], UCSC_CHROMOSOME_ENTRIES)
+
+
+class EnsemblGenomesTest(unittest.TestCase):
+    def setUp(self):
+        self.ensembl_genomes = atg.data.ensembl.EnsemblSpecies()
+        self.bee_information = {'annotation': 'pub/release-35/metazoa/gtf/apis_mellifera/Apis_mellifera.'
+                                              'GCA_000002195.1.35.gtf.gz',
+                                'version': 'GCA_000002195.1',
+                                'genome': 'pub/release-35/metazoa/fasta/apis_mellifera/dna/Apis_mellifera.'
+                                          'GCA_000002195.1.dna.toplevel.fa.gz',
+                                'species': 'apis_mellifera'}
+
+        self.corn_information = {'annotation': 'pub/release-35/plants/gtf/zea_mays/Zea_mays.AGPv4.35.gtf.gz',
+                                 'version': 'AGPv4',
+                                 'genome': 'pub/release-35/plants/fasta/zea_mays/dna/Zea_mays.AGPv4.dna.toplevel.fa.gz',
+                                 'species': 'zea_mays'}
+
+        self.mushroom_information = {'genome': 'pub/release-35/fungi/fasta/fungi_basidiomycota1_collection/'
+                                               'agaricus_bisporus_var_bisporus_h97/dna/'
+                                               'Agaricus_bisporus_var_bisporus_h97.'
+                                               'Agabi_varbisH97_2.dna.toplevel.fa.gz',
+                                     'version': 'Agabi_varbisH97_2',
+                                     'annotation': 'pub/release-35/fungi/gtf/fungi_basidiomycota1_collection/'
+                                                   'agaricus_bisporus_var_bisporus_h97/'
+                                                   'Agaricus_bisporus_var_bisporus_h97.'
+                                                   'Agabi_varbisH97_2.35.gtf.gz',
+                                     'species': 'agaricus_bisporus_var_bisporus_h97'}
+
+    def test_ensembl_table_read(self):
+        corn_record = self.ensembl_genomes.ensembl_species_df.ix[self.ensembl_genomes.ensembl_species_df['species'] ==
+                                                                 'zea_mays']
+        self.assertEqual(corn_record.shape[0], 1)
+        self.assertEqual(corn_record.iloc[0]['division'], 'EnsemblPlants')
+
+    def test_species_information(self):
+
+
+        self.assertDictEqual(self.ensembl_genomes.get_species_information('zea_mays'), self.corn_information)
+        self.assertDictEqual(self.ensembl_genomes.get_species_information('apis_mellifera'), self.bee_information)
+        self.assertDictEqual(self.ensembl_genomes.get_species_information('agaricus_bisporus_var_bisporus_h97'),
+                             self.mushroom_information)
+
+    def test_collect_species(self):
+        species_df = pandas.DataFrame.from_records([self.bee_information, self.corn_information,
+                                                    self.mushroom_information])
+        species_list = ['apis_mellifera', 'zea_mays', 'agaricus_bisporus_var_bisporus_h97']
+        self.assertTrue(species_df.equals(self.ensembl_genomes.collect_species_information(species_list)))
+
+    def test_retrieval(self):
+        self.assertFalse(self.ensembl_genomes.retrieve_species_data('homo_sapiens'))
+        self.assertTrue(self.ensembl_genomes.retrieve_species_data('agaricus_bisporus_var_bisporus_h97'))
