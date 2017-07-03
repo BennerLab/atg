@@ -47,24 +47,24 @@ class RetrievalTest(unittest.TestCase):
 class EnsemblGenomesTest(unittest.TestCase):
     def setUp(self):
         self.ensembl_genomes = atg.data.ensembl.EnsemblSpecies()
-        self.bee_information = {'annotation': 'pub/current/metazoa/gtf/apis_mellifera/Apis_mellifera.'
+        self.bee_information = {'annotation': 'pub/release-35/metazoa/gtf/apis_mellifera/Apis_mellifera.'
                                               'GCA_000002195.1.35.gtf.gz',
                                 'version': 'GCA_000002195.1',
-                                'genome': 'pub/current/metazoa/fasta/apis_mellifera/dna/Apis_mellifera.'
+                                'genome': 'pub/release-35/metazoa/fasta/apis_mellifera/dna/Apis_mellifera.'
                                           'GCA_000002195.1.dna.toplevel.fa.gz',
                                 'species': 'apis_mellifera'}
 
-        self.corn_information = {'annotation': 'pub/current/plants/gtf/zea_mays/Zea_mays.AGPv4.35.gtf.gz',
+        self.corn_information = {'annotation': 'pub/release-35/plants/gtf/zea_mays/Zea_mays.AGPv4.35.gtf.gz',
                                  'version': 'AGPv4',
-                                 'genome': 'pub/current/plants/fasta/zea_mays/dna/Zea_mays.AGPv4.dna.toplevel.fa.gz',
+                                 'genome': 'pub/release-35/plants/fasta/zea_mays/dna/Zea_mays.AGPv4.dna.toplevel.fa.gz',
                                  'species': 'zea_mays'}
 
-        self.mushroom_information = {'genome': 'pub/current/fungi/fasta/fungi_basidiomycota1_collection/'
+        self.mushroom_information = {'genome': 'pub/release-35/fungi/fasta/fungi_basidiomycota1_collection/'
                                                'agaricus_bisporus_var_bisporus_h97/dna/'
                                                'Agaricus_bisporus_var_bisporus_h97.'
                                                'Agabi_varbisH97_2.dna.toplevel.fa.gz',
                                      'version': 'Agabi_varbisH97_2',
-                                     'annotation': 'pub/current/fungi/gtf/fungi_basidiomycota1_collection/'
+                                     'annotation': 'pub/release-35/fungi/gtf/fungi_basidiomycota1_collection/'
                                                    'agaricus_bisporus_var_bisporus_h97/'
                                                    'Agaricus_bisporus_var_bisporus_h97.'
                                                    'Agabi_varbisH97_2.35.gtf.gz',

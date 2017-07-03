@@ -10,9 +10,9 @@ import string
 import atg.config
 import atg.data.retrieve
 
-ENSEMBL_SPECIES_INFORMATION = 'ftp://ftp.ensemblgenomes.org/pub/current/species.txt'
-ENSEMBL_DNA_BASE_LOCATION = string.Template('pub/current/$division/fasta$collection/$species/dna/')
-ENSEMBL_GTF_BASE_LOCATION = string.Template('pub/current/$division/gtf$collection/$species/$assembly.'
+ENSEMBL_SPECIES_INFORMATION = 'ftp://ftp.ensemblgenomes.org/pub/release-35/species.txt'
+ENSEMBL_DNA_BASE_LOCATION = string.Template('pub/release-35/$division/fasta$collection/$species/dna/')
+ENSEMBL_GTF_BASE_LOCATION = string.Template('pub/release-35/$division/gtf$collection/$species/$assembly.'
                                             '$version.gtf.gz')
 
 
