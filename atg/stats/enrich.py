@@ -10,6 +10,7 @@ LOG10_FACTOR = 1.0 / numpy.log(10)
 
 GENE_COLUMN_LABEL_INDEX = 0
 GO_COLUMN_LABEL_INDEX = 1
+GO_DEFINITION_ACCESSION_INDEX = 1
 
 
 def enrichment_significance(term_row):
@@ -128,7 +129,8 @@ class EnrichmentCalculator:
             enrichment_df = self.get_all_enrichment(gene_list)
 
         annotated_enrichment_df = (enrichment_df.merge(self.term_description, left_index=True,
-                                                       right_on="GO term accession")
+                                                       right_on=self.term_description.columns
+                                                       [GO_DEFINITION_ACCESSION_INDEX])
                                                 .query('log_adjusted_pvalue < @log_pvalue_threshold')
                                                 .sort_values('log_adjusted_pvalue')
                                                 .iloc[0:num_terms]
