@@ -2,6 +2,7 @@ import unittest
 import os
 import atg.stats.enrich
 import numpy
+import pandas
 
 # Genes present in GO:0007259
 SAMPLE_ENSEMBL_GENE_LIST = ['ENSG00000159110', 'ENSG00000185338', 'ENSG00000183709', 'ENSG00000182393',
@@ -64,8 +65,11 @@ class EnrichmentTest(unittest.TestCase):
 
     def test_plot(self):
         good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:15] + SAMPLE_ENSEMBL_GENE_LIST2
-        self.calculator.plot_enrichment_single(good_gene_list)
+        self.calculator.plot_enrichment_single(good_gene_list, output_filename='/tmp/enrich.pdf')
+        self.calculator.plot_enrichment_single(good_gene_list, iterative=True,
+                                               output_filename='/tmp/iterative_enrichment.pdf')
 
     def test_iterative_enrichment(self):
-        self.calculator.iterative_enrichment(SAMPLE_ENSEMBL_GENE_LIST + SAMPLE_ENSEMBL_GENE_LIST2 +
-                                             self.all_genes.sample(100).tolist())
+        iterative_result = self.calculator.iterative_enrichment(SAMPLE_ENSEMBL_GENE_LIST + SAMPLE_ENSEMBL_GENE_LIST2 +
+                                                                self.all_genes.sample(100).tolist())
+        self.assertTrue(iterative_result.index.equals(pandas.Index(['GO:0007259', 'GO:0000002'])))
