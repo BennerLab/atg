@@ -5,13 +5,14 @@ from scipy.stats import hypergeom
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-LOG_P_VALUE_MINIMUM = -40.0
+LOG_P_VALUE_MINIMUM = -80.0
 LOG10_FACTOR = 1.0 / numpy.log(10)
 
 GENE_COLUMN_LABEL_INDEX = 0
 GO_COLUMN_LABEL_INDEX = 1
 GO_DEFINITION_TERM_INDEX = 0
 GO_DEFINITION_ACCESSION_INDEX = 1
+PLOTTED_CHARACTER_LIMIT = 40
 
 
 def enrichment_significance(term_row):
@@ -34,12 +35,18 @@ def p_adjust_bh(p, n=None):
     return q[by_orig][0:len(p)]
 
 
+def check_significance_value(log_pvalue):
+    if numpy.isneginf(log_pvalue) or log_pvalue < LOG_P_VALUE_MINIMUM:
+        return LOG_P_VALUE_MINIMUM
+    return log_pvalue
+
+
 class EnrichmentCalculator:
     """
     calculate stats on statistical enrichment on gene categories, e.g. Gene Ontology
     """
 
-    def __init__(self, gene_term_file, term_definition_file, maximum_size=1000, minimum_size=3):
+    def __init__(self, gene_term_file, term_definition_file, maximum_size=500, minimum_size=3):
         # TODO: filter by evidence code
         gene_term_df = pandas.read_csv(gene_term_file).dropna()
 
@@ -57,11 +64,11 @@ class EnrichmentCalculator:
 
         self.term_description = pandas.read_csv(term_definition_file).dropna()
 
-    def get_single_enrichment(self, gene_list, term, gene_universe=15000):
+    def get_single_enrichment(self, gene_list, term, gene_universe=15000, gene_list_size=None):
         term_df = self.gene_term_df[self.gene_term_df[self.go_column_label] == term]
         n = len(term_df)
         x = sum(term_df[self.gene_column_label].isin(gene_list))  # matched genes
-        N = len(gene_list)
+        N = gene_list_size if gene_list_size else len(gene_list)
 
         return hypergeom.logsf(x, gene_universe, n, N)
 
@@ -88,13 +95,12 @@ class EnrichmentCalculator:
                                                                        n=len(self.term_description)))
         return enrichment_df.sort_values(['log_adjusted_pvalue', 'hit_count'], ascending=[True, False])
 
-    def iterative_enrichment(self, gene_list, adj_log_p_value_threshold=-2.0, term_gene_limit=500):
+    def iterative_enrichment(self, gene_list, adj_log_p_value_threshold=-2.0):
         """
 
         :param gene_list:
         :param adj_log_p_value_threshold: stop performing enrichment calculations when the best adjusted p-value
         becomes larger than this value
-        :param term_gene_limit: ignore any gene sets larger than the given size
         :return: a DataFrame containing raw and adjusted log p-values for GO BP terms.
         """
         current_gene_set = set(gene_list)
@@ -103,7 +109,7 @@ class EnrichmentCalculator:
 
         while len(current_gene_set) > 0:
             current_enrichment_df = self.get_all_enrichment(current_gene_set, full_gene_set_size)
-            most_enriched_term_row = current_enrichment_df.query('term_count <= @term_gene_limit').iloc[0]
+            most_enriched_term_row = current_enrichment_df.iloc[0]
             if most_enriched_term_row['log_adjusted_pvalue'] > adj_log_p_value_threshold:
                 break
 
@@ -152,3 +158,92 @@ class EnrichmentCalculator:
             plt.savefig(output_filename)
         else:
             plt.show()
+
+    def iterative_enrichment_multilist(self, multi_gene_list, adj_log_p_value_threshold=-2.0):
+        """
+        perform iterative enrichment for multiple gene lists:
+        1. 
+
+        :param multi_gene_list:
+        :param adj_log_p_value_threshold:
+        :return:
+        """
+
+        # set up sets and track original list size
+        gene_set_dict = {}
+        gene_set_size = {}
+        for set_name, gene_list in multi_gene_list.items():
+            gene_set_dict[set_name] = set(gene_list)
+            gene_set_size[set_name] = len(gene_list)
+
+        # store results in a dictionary of lists, one list per input gene list and one list for enriched terms
+        enrichment_results = {key: [] for key in gene_set_dict.keys()}
+        enrichment_results['GO term accession'] = []
+
+        while True:
+            most_significant_log_pvalue = 0.0
+            most_significant_term = None
+
+            # find most significant term (MST) in any set
+            for set_name, gene_set in gene_set_dict.items():
+                current_enrichment_df = self.get_all_enrichment(gene_set, gene_set_size[set_name])
+                if len(current_enrichment_df) == 0:
+                    continue
+                current_enriched_term_row = current_enrichment_df.iloc[0]
+                current_enrichment_log_pvalue = current_enriched_term_row['log_adjusted_pvalue']
+
+                # replace negative infinity with defined minimum value
+                current_enrichment_log_pvalue = check_significance_value(current_enrichment_log_pvalue)
+
+                if current_enrichment_log_pvalue < most_significant_log_pvalue:
+                    most_significant_log_pvalue = current_enrichment_log_pvalue
+                    most_significant_term = current_enriched_term_row.name
+
+            if most_significant_log_pvalue >= adj_log_p_value_threshold:
+                break
+
+            enrichment_results['GO term accession'].append(most_significant_term)
+            current_term_genes = self.gene_term_df.loc[self.gene_term_df[self.go_column_label] == most_significant_term,
+                                                       self.gene_column_label]
+
+            # evaluate MST in all sets
+            for set_name, gene_set in gene_set_dict.items():
+                current_term_significance = self.get_single_enrichment(gene_set, most_significant_term, self.universe,
+                                                                       gene_set_size[set_name])
+                current_term_significance = check_significance_value(current_term_significance)
+                enrichment_results[set_name].append(current_term_significance)
+
+            # remove MST genes from all sets
+            for set_name, gene_set in gene_set_dict.items():
+                gene_set_dict[set_name].difference_update(current_term_genes.values)
+
+        enrichment_results_df = pandas.DataFrame.from_dict(enrichment_results).set_index('GO term accession')
+        return enrichment_results_df
+
+    def plot_enrichment_multiple(self, multi_gene_list, output_filename):
+        enrichment_results_df = self.iterative_enrichment_multilist(multi_gene_list)
+
+        # replace accession numbers with GO term descriptions
+        formatted_enrichment_df = enrichment_results_df.merge(self.term_description, left_index=True,
+                                                              right_on='GO term accession')
+        formatted_enrichment_df['GO term'] = (formatted_enrichment_df['GO term name'] + '\n[' +
+                                              formatted_enrichment_df['GO term accession'] + ']')
+        formatted_enrichment_df.drop(self.term_description.columns, axis=1, inplace=True)
+        formatted_enrichment_df.set_index('GO term', inplace=True)
+
+        sns.set(style='whitegrid')
+        plt.figure()
+        plot = sns.clustermap(formatted_enrichment_df, cmap="Reds_r")
+        plt.setp(plot.ax_heatmap.yaxis.get_majorticklabels(), rotation=0)
+        # plot.set_xlabel(r'$-log_{10}(p)$')
+        # plot.set_ylabel('')
+        # plot.xaxis.grid(False)
+        # plot.yaxis.grid(True)
+        # sns.despine(left=True, bottom=True)
+
+        if output_filename:
+            plot.savefig(output_filename)
+        else:
+            plt.show()
+
+
