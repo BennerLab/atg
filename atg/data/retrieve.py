@@ -107,12 +107,13 @@ class ATGDataTracker:
     def check_annotation(self, organism):
         return organism in self.genome_path
 
-    def retrieve_data(self, genome, overwrite=False):
+    def retrieve_data(self, genome, overwrite=False, selected_files=GENOME_FILES):
         """
-        Fetch all data files for a specified genome
+        Fetch all or selected data files for a specified genome
 
         :param genome:
         :param overwrite:
+        :param selected_files: a restricted list of files to retrieve
         :return:
         """
 
@@ -121,7 +122,7 @@ class ATGDataTracker:
             return False
 
         for filename, current_url in self.config.items(genome):
-            if filename not in GENOME_FILES:
+            if filename not in selected_files:
                 continue
 
             current_path = os.path.join(self.genome_path[genome], filename)

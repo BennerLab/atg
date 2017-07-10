@@ -1,5 +1,6 @@
 import unittest
 import pandas
+import atg.data.retrieve
 import atg.data.identifiers
 
 human_symbol_series = pandas.Series(['CXCL9', 'ACTB'])
@@ -11,6 +12,11 @@ mouse_ensembl_series = pandas.Series(['ENSMUSG00000029417', 'ENSMUSG00000029580'
 
 class IDConversionTest(unittest.TestCase):
     def setUp(self):
+        # make sure that relevant files are available
+        data_tracker = atg.data.retrieve.ATGDataTracker()
+        data_tracker.retrieve_data("human", selected_files=['ensembl_gene.csv'])
+        data_tracker.retrieve_data("mouse", selected_files=['ensembl_gene.csv'])
+
         self.human_translator = atg.data.identifiers.GeneIDTranslator('human')
         self.mouse_translator = atg.data.identifiers.GeneIDTranslator('mouse')
 
