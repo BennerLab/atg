@@ -1,7 +1,9 @@
 import pandas
 import numpy
+import os
+import sys
+import atg.data.identifiers
 from scipy.stats import hypergeom
-
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -13,6 +15,8 @@ GO_COLUMN_LABEL_INDEX = 1
 GO_DEFINITION_TERM_INDEX = 0
 GO_DEFINITION_ACCESSION_INDEX = 1
 PLOTTED_CHARACTER_LIMIT = 40
+DEFAULT_MAXIMUM_TERM_SIZE = 250
+TERMINAL_OUTPUT_LINES = 20
 
 
 def enrichment_significance(term_row):
@@ -46,7 +50,7 @@ class EnrichmentCalculator:
     calculate stats on statistical enrichment on gene categories, e.g. Gene Ontology
     """
 
-    def __init__(self, gene_term_file, term_definition_file, maximum_size=500, minimum_size=3):
+    def __init__(self, gene_term_file, term_definition_file, maximum_size=DEFAULT_MAXIMUM_TERM_SIZE, minimum_size=3):
         # TODO: filter by evidence code
         gene_term_df = pandas.read_csv(gene_term_file).dropna()
 
@@ -247,3 +251,61 @@ class EnrichmentCalculator:
             plt.show()
 
 
+def run_enrichment(namespace):
+    species = namespace.species
+
+    # get a translator ready even if it's not needed
+    translator = atg.data.identifiers.GeneIDTranslator(species)
+    go_term_path = os.path.join(atg.data.genome_path[species], 'gene_go.csv')
+    go_definition_path = os.path.join(atg.data.genome_path[species], 'go_definition.csv')
+
+    maximum_size = DEFAULT_MAXIMUM_TERM_SIZE
+    if 'term_size_limit' in namespace:
+        maximum_size = namespace.term_size_limit
+    calculator = EnrichmentCalculator(go_term_path, go_definition_path, maximum_size)
+
+    # for a single filename, read the gene list, assuming no header
+    if len(namespace.filename) == 1:
+        input_gene_series = pandas.read_csv(namespace.filename[0]).ix[:, 0]
+        gene_list = translator.translate_identifiers(input_gene_series, input_type=None, output_type='ensembl')
+
+        if namespace.plot:
+            calculator.plot_enrichment_single(gene_list, output_filename=namespace.plot, iterative=True)
+        else:
+            enrichment_result = calculator.iterative_enrichment(gene_list)
+            if namespace.output:
+                enrichment_result.reset_index().to_csv(namespace.output, index=False)
+            else:
+                enrichment_result.reset_index().ix[0:TERMINAL_OUTPUT_LINES, ].to_string(sys.stdout, index=False, )
+
+    # read each file, using the filename as the gene set name
+    else:
+        gene_set_dict = {}
+        for filename in namespace.filename:
+            gene_set_name = os.path.splitext(os.path.basename(filename))[0]
+            input_gene_series = pandas.read_csv(filename).ix[:, 0]
+            gene_list = translator.translate_identifiers(input_gene_series, input_type=None, output_type='ensembl')
+            gene_set_dict[gene_set_name] = gene_list
+
+        if namespace.plot:
+            calculator.plot_enrichment_multiple(gene_set_dict, namespace.plot)
+
+        else:
+            enrichment_result = calculator.iterative_enrichment_multilist(gene_set_dict)
+            if namespace.output:
+                enrichment_result.reset_index().to_csv(namespace.output, index=False)
+            else:
+                enrichment_result.reset_index().ix[0:TERMINAL_OUTPUT_LINES, ].to_string(sys.stdout, index=False)
+
+
+
+def setup_subparsers(subparsers):
+    enrichment_parser = subparsers.add_parser('enrich', help='Gene set enrichment')
+    enrichment_parser.add_argument('filename', help="One or more single-column files containing gene identifiers",
+                                   nargs='+')
+    enrichment_parser.add_argument('-s', '--species', default="human", help="")
+    enrichment_parser.add_argument('-n', dest='term_size_limit', default=DEFAULT_MAXIMUM_TERM_SIZE, type=int)
+    enrichment_parser.add_argument('-p', '--plot', help="filename for graphical output")
+    enrichment_parser.add_argument('-o', '--output', help="filename for tabular output")
+
+    enrichment_parser.set_defaults(func=run_enrichment)
