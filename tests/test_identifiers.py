@@ -2,12 +2,19 @@ import unittest
 import pandas
 import atg.data.retrieve
 import atg.data.identifiers
+from pandas.util.testing import assert_frame_equal, assert_series_equal
 
-human_symbol_series = pandas.Series(['CXCL9', 'ACTB'])
-human_ensembl_series = pandas.Series(['ENSG00000138755', 'ENSG00000075624'])
+human_symbol = pandas.Series(['CXCL9', 'ACTB'])
+human_ensembl = pandas.Series(['ENSG00000138755', 'ENSG00000075624'])
 
-mouse_symbol_series = pandas.Series(['Cxcl9', 'Actb'])
-mouse_ensembl_series = pandas.Series(['ENSMUSG00000029417', 'ENSMUSG00000029580'])
+mouse_symbol = pandas.Series(['Cxcl9', 'Actb'])
+mouse_ensembl = pandas.Series(['ENSMUSG00000029417', 'ENSMUSG00000029580'])
+
+# genes that appear multiple times in the genome (due to presence on haplotype blocks?)
+human_symbol_multiple = pandas.Series(['CCL16', 'RAD17'])
+mouse_symbol_multiple = pandas.Series(['Ccl19', 'Gatm'])
+human_ensembl_first =  pandas.Series(['ENSG00000275152', 'ENSG00000152942'])
+mouse_ensembl_first =  pandas.Series(['ENSMUSG00000071005', 'ENSMUSG00000027199'])
 
 
 class IDConversionTest(unittest.TestCase):
@@ -28,14 +35,14 @@ class IDConversionTest(unittest.TestCase):
         test a couple of one-to-one translations both ways
         :return:
         """
-        for symbol_series, ensembl_series, translator in [(human_symbol_series, human_ensembl_series, self.human_translator),
-                                              (mouse_symbol_series, mouse_ensembl_series, self.mouse_translator)]:
+        for symbol_series, ensembl_series, translator in [(human_symbol, human_ensembl, self.human_translator),
+                                                          (mouse_symbol, mouse_ensembl, self.mouse_translator)]:
 
             ensembl_result = translator.translate_identifiers(symbol_series, input_type=None, output_type='ensembl')
-            pandas.util.testing.assert_series_equal(ensembl_series, ensembl_result, check_names=False)
+            assert_series_equal(ensembl_series, ensembl_result, check_names=False)
 
             ensembl_result = translator.translate_identifiers(ensembl_series, input_type=None, output_type='symbol')
-            pandas.util.testing.assert_series_equal(symbol_series, ensembl_result, check_names=False)
+            assert_series_equal(symbol_series, ensembl_result, check_names=False)
 
     def test_translation_fails(self):
         with self.assertRaises(ValueError):
@@ -44,9 +51,29 @@ class IDConversionTest(unittest.TestCase):
             self.human_translator.translate_identifiers([], input_type=None, output_type="something")
 
     def test_guessing(self):
-        self.assertEqual('ensembl', atg.data.identifiers.guess_identifier_type(human_ensembl_series))
-        self.assertEqual('symbol', atg.data.identifiers.guess_identifier_type(human_symbol_series))
+        self.assertEqual('ensembl', atg.data.identifiers.guess_identifier_type(human_ensembl))
+        self.assertEqual('symbol', atg.data.identifiers.guess_identifier_type(human_symbol))
         self.assertEqual('entrez', atg.data.identifiers.guess_identifier_type([1, 2, 3]))
         self.assertEqual('entrez', atg.data.identifiers.guess_identifier_type(['1', '2', '3']))
 
         self.assertEqual('symbol', atg.data.identifiers.guess_identifier_type(['1', 1, 'a']))
+
+    def test_mapping(self):
+        human_dataframe = pandas.DataFrame({'ensembl': human_ensembl, 'symbol': human_symbol})
+        map_result = self.human_translator.map_identifiers(human_ensembl, input_type=None, output_type='symbol')
+        assert_frame_equal(human_dataframe, map_result)
+
+        mouse_dataframe = pandas.DataFrame({'ensembl': mouse_ensembl, 'symbol': mouse_symbol})
+        map_result = self.mouse_translator.map_identifiers(mouse_ensembl, input_type=None, output_type='symbol')
+        assert_frame_equal(mouse_dataframe, map_result)
+
+    def test_multiple_mapping(self):
+        for symbol_series, ensembl_series, translator in ([human_symbol_multiple, human_ensembl_first,
+                                                           self.human_translator],
+                                                          [mouse_symbol_multiple, mouse_ensembl_first,
+                                                           self.mouse_translator]):
+            map_result = translator.map_identifiers(symbol_series, input_type=None, output_type='ensembl')
+            self.assertGreater(len(map_result), len(symbol_series))
+            simple_translation_result = translator.translate_identifiers(symbol_series, None, 'ensembl')
+            self.assertEqual(len(simple_translation_result), len(symbol_series))
+            self.assertListEqual(simple_translation_result.tolist(), ensembl_series.tolist())
