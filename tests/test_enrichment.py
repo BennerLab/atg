@@ -3,6 +3,8 @@ import os
 import atg.stats.enrich
 import numpy
 import pandas
+import argparse
+import shlex
 
 # Genes present in GO:0007259 (JAK-STAT cascade)
 SAMPLE_ENSEMBL_GENE_LIST = ['ENSG00000159110', 'ENSG00000185338', 'ENSG00000183709', 'ENSG00000182393',
@@ -28,6 +30,10 @@ SAMPLE_ENSEMBL_GENE_LIST3 = ['ENSG00000116288', 'ENSG00000124766', 'ENSG00000071
                              'ENSG00000173928', 'ENSG00000005893', 'ENSG00000111640', 'ENSG00000148584',
                              'ENSG00000235941', 'ENSG00000180228', 'ENSG00000224501', 'ENSG00000169877',
                              'ENSG00000151929', 'ENSG00000171209']
+
+GENELIST_LOCATION = os.path.join(os.path.dirname(__file__), 'data', 'genelists')
+HALLMARK_APOPTOSIS = os.path.join(GENELIST_LOCATION, 'HALLMARK_APOPTOSIS.txt')
+HALLMARK_P53_PATHWAY = os.path.join(GENELIST_LOCATION, 'HALLMARK_P53_PATHWAY.txt')
 
 
 def test_adjust_pvalue():
@@ -95,4 +101,18 @@ class EnrichmentTest(unittest.TestCase):
         multi_gene_list = {'A': SAMPLE_ENSEMBL_GENE_LIST, 'B': SAMPLE_ENSEMBL_GENE_LIST2,
                            'C': SAMPLE_ENSEMBL_GENE_LIST3}
         self.calculator.plot_enrichment_multiple(multi_gene_list, output_filename="/tmp/multi.pdf")
+
+    def test_namespace_run(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command", help='commands')
+        atg.stats.enrich.setup_subparsers(subparsers)
+
+        bad_species_command = shlex.split('enrich test.txt -s robot')
+
+        with self.assertRaises(ValueError):
+            atg.stats.enrich.run_enrichment(parser.parse_args(bad_species_command))
+
+        atg.stats.enrich.run_enrichment(parser.parse_args(['enrich', HALLMARK_APOPTOSIS]))
+        atg.stats.enrich.run_enrichment(parser.parse_args(['enrich', HALLMARK_APOPTOSIS, HALLMARK_P53_PATHWAY]))
+
 
