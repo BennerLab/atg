@@ -2,9 +2,14 @@
   <dictionary name="mchang">
     <words>
       <w>autoscale</w>
+      <w>benjamini</w>
       <w>biomart</w>
       <w>ensemblgenomes</w>
+      <w>entrez</w>
       <w>filetype</w>
+      <w>hochberg</w>
+      <w>multilist</w>
+      <w>pvalue</w>
       <w>rnaseq</w>
       <w>toplevel</w>
       <w>unstranded</w>
