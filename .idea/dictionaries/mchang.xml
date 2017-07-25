@@ -6,7 +6,9 @@
       <w>biomart</w>
       <w>ensemblgenomes</w>
       <w>entrez</w>
+      <w>fasta</w>
       <w>filetype</w>
+      <w>hisat</w>
       <w>hochberg</w>
       <w>multilist</w>
       <w>pvalue</w>
