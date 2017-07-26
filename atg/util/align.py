@@ -271,31 +271,36 @@ class HISAT2Aligner(ReadAlignmentHelper):
         read_files_dict = self.group_reads(**kwargs)
         command_list = self.get_command_list(read_files_dict, **kwargs)
 
-        # check commands or run them
-        if kwargs['check']:
-            for command in command_list:
-                print(command)
+        if kwargs['bam']:
+            samtools_bam_command = shlex.split('samtools view -u')
+
+            for alignment_command in command_list:
+                alignment_command_list = shlex.split(alignment_command)
+                # remove the last two elements from the list (e.g. '-S' and 'output.sam')
+                # the first element removed should be the SAM output filename
+                output_filename = alignment_command_list.pop()[:-4] + '.bam'
+                alignment_command_list.pop()
+
+                samtools_sort_command = shlex.split('samtools sort -@ %d -o %s' % (DEFAULT_THREADS, output_filename))
+
+                if kwargs['check']:
+                    command_pipe = ' | '.join([
+                        ' '.join(alignment_command_list),
+                        ' '.join(samtools_bam_command),
+                        ' '.join(samtools_sort_command)
+                    ])
+                    print(command_pipe)
+                else:
+                    aligner = subprocess.Popen(alignment_command_list, stdout=subprocess.PIPE)
+                    samtools_bam = subprocess.Popen(samtools_bam_command, stdin=aligner.stdout, stdout=subprocess.PIPE)
+                    samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout)
+                    samtools_sort.communicate()
 
         else:
-            if kwargs['bam']:
-                samtools_bam_command = shlex.split('samtools view -u')
-
-                for alignment_command in command_list:
-                    alignment_command_list = shlex.split(alignment_command)
-                    # remove the last two elements from the list (e.g. '-S' and 'output.sam')
-                    # the first element removed should be the SAM output filename
-                    output_filename = alignment_command_list.pop()[:-4] + '.bam'
-                    alignment_command_list.pop()
-
-                    aligner = subprocess.Popen(alignment_command_list, stdout=subprocess.PIPE)
-
-                    samtools_bam = subprocess.Popen(samtools_bam_command, stdin=aligner.stdout, stdout=subprocess.PIPE)
-
-                    samtools_sort_command = 'samtools sort -@ %d -o %s' % (DEFAULT_THREADS, output_filename)
-                    samtools_sort = subprocess.Popen(shlex.split(samtools_sort_command), stdin=samtools_bam.stdout)
-                    samtools_sort.communicate()
-            else:
-                for alignment_command in command_list:
+            for alignment_command in command_list:
+                if kwargs['check']:
+                    print(alignment_command)
+                else:
                     subprocess.run(args=shlex.split(alignment_command), env=os.environ.copy())
 
         return True
