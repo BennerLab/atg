@@ -222,7 +222,7 @@ class HISAT2Aligner(ReadAlignmentHelper):
 
     def __init__(self):
         super().__init__()
-        self.command_template = string.Template("hisat2 -x $index -p $threads $processed_input")
+        self.command_template = string.Template("hisat2 --new-summary -x $index -p $threads $processed_input")
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -278,7 +278,9 @@ class HISAT2Aligner(ReadAlignmentHelper):
                 alignment_command_list = shlex.split(alignment_command)
                 # remove the last two elements from the list (e.g. '-S' and 'output.sam')
                 # the first element removed should be the SAM output filename
-                output_filename = alignment_command_list.pop()[:-4] + '.bam'
+                output_basename = alignment_command_list.pop()[:-4]
+                output_filename = output_basename + '.bam'
+                log_filename = output_basename + '.log'
                 alignment_command_list.pop()
 
                 samtools_sort_command = shlex.split('samtools sort -@ %d -o %s' % (DEFAULT_THREADS, output_filename))
@@ -291,17 +293,22 @@ class HISAT2Aligner(ReadAlignmentHelper):
                     ])
                     print(command_pipe)
                 else:
-                    aligner = subprocess.Popen(alignment_command_list, stdout=subprocess.PIPE)
-                    samtools_bam = subprocess.Popen(samtools_bam_command, stdin=aligner.stdout, stdout=subprocess.PIPE)
-                    samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout)
-                    samtools_sort.communicate()
+                    with open(log_filename, 'w') as log:
+                        aligner = subprocess.Popen(alignment_command_list, stdout=subprocess.PIPE, stderr=log)
+                        samtools_bam = subprocess.Popen(samtools_bam_command, stdin=aligner.stdout,
+                                                        stdout=subprocess.PIPE)
+                        samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout)
+                        samtools_sort.communicate()
 
         else:
             for alignment_command in command_list:
                 if kwargs['check']:
                     print(alignment_command)
                 else:
-                    subprocess.run(args=shlex.split(alignment_command), env=os.environ.copy())
+                    output_basename = alignment_command.split()[-1][:-4]
+                    log_filename = output_basename + '.log'
+                    with open(log_filename, 'w') as log:
+                        subprocess.run(args=shlex.split(alignment_command), env=os.environ.copy(), stderr=log)
 
         return True
 
