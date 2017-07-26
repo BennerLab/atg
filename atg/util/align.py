@@ -183,18 +183,20 @@ class STARAligner(ReadAlignmentHelper):
         """
 
         self.command_template = string.Template(
-            "STAR --genomeDir $index --genomeLoad NoSharedMemory --runThreadN $threads "
+            "STAR --genomeDir $index --runThreadN $threads "
             "--readFilesIn $read_files --outFileNamePrefix $basename. "
             "--outSAMtype BAM SortedByCoordinate")
 
-        # NoSharedMemory
         # --genomeLoad LoadAndKeep
         # --limitBAMsortRAM 50000000000
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
         aligner_argument_parser = super(STARAligner, cls).get_argument_parser(aligner_argument_parser)
-        aligner_argument_parser.add_argument('-k', '--keep_unmapped', action='store_true')
+        aligner_argument_parser.add_argument('-k', '--keep_unmapped', action='store_true',
+                                             help="write unmapped reads to file")
+        aligner_argument_parser.add_argument('--low_resource', action='store_true',
+                                             help="avoid using shared memory")
         return aligner_argument_parser
 
     def get_command_list(self, read_files_dict, **kwargs):
@@ -205,12 +207,15 @@ class STARAligner(ReadAlignmentHelper):
             # assume that all grouped files are compressed with the same format
             input_string = read_files_dict[sample_name]
             file_extension = os.path.splitext(input_string)[1]
+
+            additional_options = ''
             if file_extension == '.gz':
-                additional_options = ' --readFilesCommand gunzip -c'
+                additional_options += ' --readFilesCommand gunzip -c'
             elif file_extension == '.bz2':
-                additional_options = ' --readFilesCommand bunzip2 -c'
-            else:
-                additional_options = ''
+                additional_options += ' --readFilesCommand bunzip2 -c'
+
+            if not kwargs['low_resource']:
+                additional_options += ' --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000'
 
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=read_files_dict[sample_name],
                                                                       basename=output_file) + additional_options)
