@@ -11,7 +11,7 @@ import atg.quantification.normalization
 import atg.data.retrieve
 import atg.data.ensembl
 import atg.stats.enrich
-import atg.util.index
+import atg.util.index, atg.util.align
 
 
 if __name__ == '__main__':
@@ -26,6 +26,7 @@ if __name__ == '__main__':
     atg.data.ensembl.setup_subparsers(subparsers)
     atg.stats.enrich.setup_subparsers(subparsers)
     atg.util.index.setup_subparsers(subparsers)
+    atg.util.align.setup_subparsers(subparsers)
 
     args = parser.parse_args()
     args.func(args)
