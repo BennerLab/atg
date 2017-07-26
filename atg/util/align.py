@@ -82,11 +82,13 @@ class ReadAlignmentHelper:
         - summarizing results
     """
 
+    name = 'test'
+
     def __init__(self):
         """
 
         """
-        self.command_template = string.Template('[executable] --index $index --output $output --threads $threads '
+        self.command_template = string.Template('echo [executable] --index $index --output $output --threads $threads '
                                                 '--input $input')
 
     @classmethod
@@ -101,14 +103,18 @@ class ReadAlignmentHelper:
         if not aligner_argument_parser:
             aligner_argument_parser = argparse.ArgumentParser()
 
+        default_threads = max(1, subprocess.os.cpu_count() // 2)
+
+        aligner_argument_parser.set_defaults(Aligner=cls)
         aligner_argument_parser.add_argument('index', help="location of the reference index")
-        aligner_argument_parser.add_argument('output', help="directory to store output")
+        aligner_argument_parser.add_argument('output', help="directory to store all output")
         aligner_argument_parser.add_argument('fastq', nargs='+', help="input files or sample sheet")
         aligner_argument_parser.add_argument('-s', '--sample_sheet', action="store_true",
                                              help="use a sample sheet for read files and sample IDs",)
         aligner_argument_parser.add_argument('-c', '--check', help="output commands to stdout instead of running them",
                                              action="store_true")
-        aligner_argument_parser.add_argument('-t', '--threads', help="number of threads", type=int, default=24)
+        aligner_argument_parser.add_argument('-t', '--threads', help="number of threads", type=int,
+                                             default=default_threads)
         aligner_argument_parser.add_argument("-d", "--delimiter", help="delimiter for sample ID extraction (default _)",
                                              default="_")
         aligner_argument_parser.add_argument('-p', '--force_pair', action="store_true",
@@ -169,6 +175,8 @@ class ReadAlignmentHelper:
 
 
 class STARAligner(ReadAlignmentHelper):
+    name = 'star'
+
     def __init__(self):
         """
         run spliced alignment with STAR
@@ -176,9 +184,13 @@ class STARAligner(ReadAlignmentHelper):
         """
 
         self.command_template = string.Template(
-            "STAR --genomeDir $index --genomeLoad LoadAndKeep --runThreadN $threads "
+            "STAR --genomeDir $index --genomeLoad NoSharedMemory --runThreadN $threads "
             "--readFilesIn $read_files --outFileNamePrefix $basename. "
-            "--outSAMtype BAM SortedByCoordinate --limitBAMsortRAM 50000000000")
+            "--outSAMtype BAM SortedByCoordinate")
+
+        # NoSharedMemory
+        # --genomeLoad LoadAndKeep
+        # --limitBAMsortRAM 50000000000
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -205,33 +217,65 @@ class STARAligner(ReadAlignmentHelper):
                                                                       basename=output_file) + additional_options)
         return command_list
 
-    def align_reads(self, **kwargs):
-        command = super(STARAligner, self).align_reads(**kwargs)
 
-        # if kwargs['keep_unmapped']:
-        #     command += ' --outReadsUnmapped Fastx'
-        # for sample_name, grouped_reads in sorted(read_files_dict.items()):
-        #     print(sample_name, grouped_reads, command)
+class HISAT2Aligner(ReadAlignmentHelper):
+    name = 'hisat2'
 
-        return command
+    def __init__(self):
+        self.command_template = string.Template("hisat2 -x $index -p $threads $processed_input -S $output_basename.sam")
+
+    @classmethod
+    def get_argument_parser(cls, aligner_argument_parser=None):
+        aligner_argument_parser = super(HISAT2Aligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('--dta', action='store_true', help="add information for downstream"
+                                                                                "transcriptome assembly")
+        return aligner_argument_parser
+
+    def get_command_list(self, read_files_dict, **kwargs):
+        command_list = []
+        for sample_name in sorted(read_files_dict.keys()):
+            output_file = os.path.join(kwargs['output'], sample_name)
+
+            # manipulate read file input for HISAT2 command
+            read_list = read_files_dict[sample_name].split(' ')
+            if len(read_list) == 1:
+                processed_input = '-U %s' % read_list[0]
+            elif len(read_list) == 2:
+                processed_input = '-1 %s -2 %s' % (read_list[0], read_list[1])
+            else:
+                raise ReadFileMismatch('Improperly formatted read file input:\n%s\n' % read_files_dict[sample_name])
+
+            additional_options = ''
+            if kwargs['dta']:
+                additional_options += ' --dta'
+
+            command_list.append(self.command_template.safe_substitute(kwargs, processed_input=processed_input,
+                                                                      output_basename = output_file) +
+                                additional_options)
+        return command_list
+
+
+def run_aligner(namespace):
+    aligner = namespace.Aligner()
+    aligner.align_reads(**vars(namespace))
+
+
+def setup_subparsers(subparsers):
+    aligner_parser = subparsers.add_parser('align', help='Align reads to reference genome/transcriptome')
+    aligner_subparser = aligner_parser.add_subparsers(title="aligner", dest="aligner",
+                                                        description="available alignment programs")
+
+    for aligner in [ReadAlignmentHelper, STARAligner, HISAT2Aligner]:
+        current_subparser = aligner_subparser.add_parser(aligner.name)
+        aligner.get_argument_parser(current_subparser)
+
+    aligner_parser.set_defaults(func=run_aligner)
 
 
 if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Choose aligner")
-    subparsers = parser.add_subparsers(title="aligner",
-                                       description="available alignment programs",
-                                       dest="aligner")
-
-    # set up simple parsers
-    subparser_test = subparsers.add_parser('test')
-    ReadAlignmentHelper.get_argument_parser(subparser_test)
-
-    subparser_star = subparsers.add_parser('star')
-    STARAligner.get_argument_parser(subparser_star)
+    parser = argparse.ArgumentParser()
+    main_subparsers = parser.add_subparsers(dest="command", help='commands')
+    setup_subparsers(main_subparsers)
 
     args = parser.parse_args()
-
-    aligner = STARAligner()
-    aligner.align_reads(**vars(args))
+    args.func(args)
