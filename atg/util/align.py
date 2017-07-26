@@ -3,8 +3,9 @@ import argparse
 import subprocess
 import shlex
 import pandas
-import csv
 import string
+
+DEFAULT_THREADS = max(1, subprocess.os.cpu_count() // 2)
 
 
 class ReadFileMismatch(Exception):
@@ -103,8 +104,6 @@ class ReadAlignmentHelper:
         if not aligner_argument_parser:
             aligner_argument_parser = argparse.ArgumentParser()
 
-        default_threads = max(1, subprocess.os.cpu_count() // 2)
-
         aligner_argument_parser.set_defaults(Aligner=cls)
         aligner_argument_parser.add_argument('index', help="location of the reference index")
         aligner_argument_parser.add_argument('output', help="directory to store all output")
@@ -114,7 +113,7 @@ class ReadAlignmentHelper:
         aligner_argument_parser.add_argument('-c', '--check', help="output commands to stdout instead of running them",
                                              action="store_true")
         aligner_argument_parser.add_argument('-t', '--threads', help="number of threads", type=int,
-                                             default=default_threads)
+                                             default=DEFAULT_THREADS)
         aligner_argument_parser.add_argument("-d", "--delimiter", help="delimiter for sample ID extraction (default _)",
                                              default="_")
         aligner_argument_parser.add_argument('-p', '--force_pair', action="store_true",
@@ -222,11 +221,14 @@ class HISAT2Aligner(ReadAlignmentHelper):
     name = 'hisat2'
 
     def __init__(self):
-        self.command_template = string.Template("hisat2 -x $index -p $threads $processed_input -S $output_basename.sam")
+        super().__init__()
+        self.command_template = string.Template("hisat2 -x $index -p $threads $processed_input")
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
         aligner_argument_parser = super(HISAT2Aligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
+                                                                                "unsorted SAM output")
         aligner_argument_parser.add_argument('--dta', action='store_true', help="add information for downstream"
                                                                                 "transcriptome assembly")
         return aligner_argument_parser
@@ -249,10 +251,54 @@ class HISAT2Aligner(ReadAlignmentHelper):
             if kwargs['dta']:
                 additional_options += ' --dta'
 
+            additional_options += ' -S %s.sam' % output_file
+
             command_list.append(self.command_template.safe_substitute(kwargs, processed_input=processed_input,
-                                                                      output_basename = output_file) +
+                                                                      output_basename=output_file) +
                                 additional_options)
         return command_list
+
+    def align_reads(self, **kwargs):
+        """
+        primary method, which takes care of:
+        1. grouping read files into a dictionary of samples
+        2. generating a list of commands to be run
+        3. executing the commands via subprocess
+
+        :return:
+        """
+
+        read_files_dict = self.group_reads(**kwargs)
+        command_list = self.get_command_list(read_files_dict, **kwargs)
+
+        # check commands or run them
+        if kwargs['check']:
+            for command in command_list:
+                print(command)
+
+        else:
+            if kwargs['bam']:
+                samtools_bam_command = shlex.split('samtools view -u')
+
+                for alignment_command in command_list:
+                    alignment_command_list = shlex.split(alignment_command)
+                    # remove the last two elements from the list (e.g. '-S' and 'output.sam')
+                    # the first element removed should be the SAM output filename
+                    output_filename = alignment_command_list.pop()[:-4] + '.bam'
+                    alignment_command_list.pop()
+
+                    aligner = subprocess.Popen(alignment_command_list, stdout=subprocess.PIPE)
+
+                    samtools_bam = subprocess.Popen(samtools_bam_command, stdin=aligner.stdout, stdout=subprocess.PIPE)
+
+                    samtools_sort_command = 'samtools sort -@ %d -o %s' % (DEFAULT_THREADS, output_filename)
+                    samtools_sort = subprocess.Popen(shlex.split(samtools_sort_command), stdin=samtools_bam.stdout)
+                    samtools_sort.communicate()
+            else:
+                for alignment_command in command_list:
+                    subprocess.run(args=shlex.split(alignment_command), env=os.environ.copy())
+
+        return True
 
 
 def run_aligner(namespace):

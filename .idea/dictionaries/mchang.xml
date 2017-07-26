@@ -15,6 +15,7 @@
       <w>multilist</w>
       <w>pvalue</w>
       <w>rnaseq</w>
+      <w>samtools</w>
       <w>subparser</w>
       <w>toplevel</w>
       <w>unstranded</w>
