@@ -64,7 +64,7 @@ class GeneIDTranslator:
             input_type = guess_identifier_type(input_series)
 
         if input_type == output_type:
-            return input_series
+            return pandas.DataFrame({output_type: input_series})
 
         if input_type not in VALID_ID_TYPES:
             raise ValueError('Input type %s is not supported.' % input_type)

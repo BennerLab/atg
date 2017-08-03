@@ -44,6 +44,11 @@ class IDConversionTest(unittest.TestCase):
             ensembl_result = translator.translate_identifiers(ensembl_series, input_type=None, output_type='symbol')
             assert_series_equal(symbol_series, ensembl_result, check_names=False)
 
+    def test_translate_to_same(self):
+        assert_series_equal(self.human_translator.translate_identifiers(human_ensembl, input_type=None,
+                                                                        output_type="ensembl"),
+                            human_ensembl, check_names=False)
+
     def test_translation_fails(self):
         with self.assertRaises(ValueError):
             self.human_translator.translate_identifiers([], input_type='nothing', output_type="something")
