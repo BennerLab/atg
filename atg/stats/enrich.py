@@ -21,7 +21,8 @@ TERMINAL_OUTPUT_LINES = 20
 
 
 def enrichment_significance(term_row):
-    return hypergeom.logsf(term_row['hit_count'], term_row['universe'], term_row['term_count'], term_row['list_size'])
+    return LOG10_FACTOR * hypergeom.logsf(term_row['hit_count']-1, term_row['universe'],
+                                          term_row['term_count'], term_row['list_size'])
 
 
 def p_adjust_bh(p, n=None):
@@ -52,34 +53,23 @@ class EnrichmentCalculator:
     """
 
     def __init__(self, gene_term_file, term_definition_file, maximum_size=DEFAULT_MAXIMUM_TERM_SIZE, minimum_size=3):
-        # TODO: filter by evidence code
-        gene_term_df = pandas.read_csv(gene_term_file).dropna()
+        self.term_definition = pandas.read_csv(term_definition_file).dropna()
 
-        term_def = pandas.read_csv(term_definition_file).dropna()
-        # only use the biological process terms
-        self.term_definition = term_def.ix[term_def.ix[:, GO_DEFINITION_DOMAIN_INDEX] == 'biological_process']
-
+        gene_term_df = pandas.read_csv(gene_term_file)
         self.gene_column_label = gene_term_df.columns[GENE_COLUMN_LABEL_INDEX]
         self.go_column_label = gene_term_df.columns[GO_COLUMN_LABEL_INDEX]
 
-        gene_term_df.drop_duplicates([self.gene_column_label, self.go_column_label], inplace=True)
-
-        # filter the gene term dataframe on biological process
-        gene_term_bp_df = (gene_term_df.ix[gene_term_df.ix[:, GO_COLUMN_LABEL_INDEX].
-                           isin(self.term_definition.ix[:, GO_DEFINITION_ACCESSION_INDEX])])
-
-        term_count = gene_term_bp_df[self.go_column_label].value_counts()
+        term_count = gene_term_df[self.go_column_label].value_counts()
         relevant_terms = term_count[(term_count <= maximum_size) & (term_count >= minimum_size)]
 
-        self.gene_term_df = gene_term_bp_df[gene_term_bp_df[self.go_column_label].isin(relevant_terms.index.values)]
+        self.gene_term_df = gene_term_df[gene_term_df[self.go_column_label].isin(relevant_terms.index.values)]
         self.term_count = self.gene_term_df[self.go_column_label].value_counts()
         self.universe = self.gene_term_df[self.gene_column_label].nunique()
-
 
     def get_single_enrichment(self, gene_list, term, gene_universe=15000, gene_list_size=None):
         term_df = self.gene_term_df[self.gene_term_df[self.go_column_label] == term]
         n = len(term_df)
-        x = sum(term_df[self.gene_column_label].isin(gene_list))  # matched genes
+        x = sum(term_df[self.gene_column_label].isin(gene_list)) - 1  # matched genes
         N = gene_list_size if gene_list_size else len(gene_list)
 
         return hypergeom.logsf(x, gene_universe, n, N)
@@ -99,7 +89,7 @@ class EnrichmentCalculator:
 
         enrichment_df['universe'] = self.universe
         enrichment_df['list_size'] = alternate_gene_list_size if alternate_gene_list_size else len(gene_list)
-        enrichment_df['log_pvalue'] = enrichment_df.apply(enrichment_significance, axis=1, reduce=True) * LOG10_FACTOR
+        enrichment_df['log_pvalue'] = enrichment_df.apply(enrichment_significance, axis=1, reduce=True)
 
         # replace negative infinite p-values with a small constant
         enrichment_df['log_pvalue'].replace(-numpy.inf, LOG_P_VALUE_MINIMUM, inplace=True)
@@ -264,7 +254,7 @@ def run_enrichment(namespace):
 
     # get a translator ready even if it's not needed
     translator = atg.data.identifiers.GeneIDTranslator(species)
-    go_term_path = os.path.join(atg.data.genome_path[species], 'gene_go.csv')
+    go_term_path = os.path.join(atg.data.genome_path[species], 'go_biological_process.csv')
     go_definition_path = os.path.join(atg.data.genome_path[species], 'go_definition.csv')
 
     maximum_size = DEFAULT_MAXIMUM_TERM_SIZE
