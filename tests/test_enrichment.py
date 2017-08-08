@@ -54,10 +54,20 @@ def test_adjust_pvalue():
     numpy.testing.assert_almost_equal(bh_corrected_p_values, bh_corrected_p_values_n25, decimal=4)
 
 
+def test_enrichment_calculation():
+    # return hypergeom.logsf(term_row['hit_count'], term_row['universe'], term_row['term_count'], term_row['list_size'])
+    term_row = {"hit_count": 4,
+                "universe": 18466,
+                "term_count": 44,
+                "list_size": 135}
+
+    numpy.testing.assert_almost_equal(atg.stats.enrich.enrichment_significance(term_row), -3.52925402)
+
+
 class EnrichmentTest(unittest.TestCase):
     def setUp(self):
         data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
-        go_term_path = os.path.join(data_root, 'human', 'GRCh38', 'gene_go.csv')
+        go_term_path = os.path.join(data_root, 'human', 'GRCh38', 'go_biological_process.csv')
         go_definition_path = os.path.join(data_root, 'human', 'GRCh38', 'go_definition.csv')
 
         data_tracker = atg.data.retrieve.ATGDataTracker()
@@ -93,8 +103,9 @@ class EnrichmentTest(unittest.TestCase):
 
     def test_iterative_enrichment(self):
         iterative_result = self.calculator.iterative_enrichment(SAMPLE_ENSEMBL_GENE_LIST + SAMPLE_ENSEMBL_GENE_LIST2 +
-                                                                self.all_genes.ix[0:100].tolist())
-        self.assertTrue(iterative_result.index.equals(pandas.Index(['GO:0007259', 'GO:0000002'])))
+                                                                self.all_genes.ix[0:500].tolist())
+        self.assertIn('GO:0007259', iterative_result.index)
+        self.assertIn('GO:0000002', iterative_result.index)
 
     def test_iterative_enrichment_multilist(self):
         multi_gene_list = {'A': SAMPLE_ENSEMBL_GENE_LIST, 'B': SAMPLE_ENSEMBL_GENE_LIST2,
