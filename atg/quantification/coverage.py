@@ -143,8 +143,17 @@ class UnstrandedCoverageCalculator:
 
         return True
 
-    def write_bigwig(self, forward_output, genome):
-        chrom_sizes_path = get_chrom_sizes(genome)
+    def write_bigwig(self, forward_output, genome=None, chrom_sizes=None):
+        if chrom_sizes:
+            chrom_sizes_path = chrom_sizes
+
+        elif genome:
+            chrom_sizes_path = get_chrom_sizes(genome)
+
+        else:
+            # Need either a genome or chrom.sizes file
+            return
+
         bedgraph_forward = self.write_bedgraph()
 
         if self._check_chromosome_names(chrom_sizes_path):
@@ -281,11 +290,18 @@ def generate_bedgraph(namespace):
 
     if len(output_filename_list) == 1:
         calculator = UnstrandedCoverageCalculator(bam_filename)
-        calculator.write_bedgraph(output_filename_list[0], scale=scale, all_positions=all_positions)
+        if namespace.chrom_sizes:
+            calculator.write_bigwig(output_filename_list[0], chrom_sizes=namespace.chrom_sizes)
+        else:
+            calculator.write_bedgraph(output_filename_list[0], scale=scale, all_positions=all_positions)
     elif len(output_filename_list) == 2:
         calculator = StrandedCoverageCalculator(bam_filename)
-        calculator.write_bedgraph(output_filename_list[0], output_filename_list[1], scale=scale,
-                                  all_positions=all_positions)
+        if namespace.chrom_sizes:
+            calculator.write_bigwig(output_filename_list[0], output_filename_list[1],
+                                    chrom_sizes=namespace.chrom_sizes)
+        else:
+            calculator.write_bedgraph(output_filename_list[0], output_filename_list[1], scale=scale,
+                                      all_positions=all_positions)
     else:
         print("Please enter only 1 or 2 filenames.")
         return
