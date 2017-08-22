@@ -2,10 +2,14 @@ import os
 import unittest
 import tempfile
 import csv
+
+from pybedtools.helpers import chromsizes_to_file
+
 from atg.quantification import coverage
 
 UNSTRANDED_SE_RNASEQ_FILE = os.path.join(os.path.dirname(__file__), 'data', 'rnaseq_unstranded_SE.bam')
 STRANDED_PE_RNASEQ_FILE = os.path.join(os.path.dirname(__file__), 'data', 'rnaseq.bam')
+CHROM_SIZES_HG38 = os.path.join(os.path.dirname(__file__), 'data', 'hg38_chrom.sizes')
 
 class UnstrandedCoverageCalculatorTest(unittest.TestCase):
     def setUp(self):
@@ -27,7 +31,7 @@ class UnstrandedCoverageCalculatorTest(unittest.TestCase):
                 self.assertEqual(entry[0], 'chr11')
                 self.assertGreater(float(entry[3]), 0)
 
-    def test_bigwig(self):
+    def test_bigwig_with_genome(self):
         """
         just check that files were created
         TODO: use checksum?
@@ -35,6 +39,17 @@ class UnstrandedCoverageCalculatorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as working_directory:
             forward_filename = os.path.join(working_directory, "forward.bigwig")
             self.coverage_calculator.write_bigwig(forward_filename, 'hg38')
+
+            os.path.exists(forward_filename)
+
+    def test_bigwig_with_chrom_sizes(self):
+        """
+        just check that files were created
+        TODO: use checksum?
+        """
+        with tempfile.TemporaryDirectory() as working_directory:
+            forward_filename = os.path.join(working_directory, "forward.bigwig")
+            self.coverage_calculator.write_bigwig(forward_filename, chrom_sizes=CHROM_SIZES_HG38)
 
             os.path.exists(forward_filename)
 
@@ -67,7 +82,7 @@ class StrandedCoverageCalculatorTest(unittest.TestCase):
                 self.assertEqual(entry[0], 'chr11')
                 self.assertLess(float(entry[3]), 0)
 
-    def test_bigwig(self):
+    def test_bigwig_with_genome(self):
         """
         just check that files were created
         TODO: use checksum?
@@ -76,6 +91,19 @@ class StrandedCoverageCalculatorTest(unittest.TestCase):
             forward_filename = os.path.join(working_directory, "forward.bigwig")
             reverse_filename = os.path.join(working_directory, "reverse.bigwig")
             self.coverage_calculator.write_bigwig(forward_filename, reverse_filename, 'hg38')
+
+            os.path.exists(forward_filename)
+            os.path.exists(reverse_filename)
+
+    def test_bigwig_with_chrom_sizes(self):
+        """
+        just check that files were created
+        TODO: use checksum?
+        """
+        with tempfile.TemporaryDirectory() as working_directory:
+            forward_filename = os.path.join(working_directory, "forward.bigwig")
+            reverse_filename = os.path.join(working_directory, "reverse.bigwig")
+            self.coverage_calculator.write_bigwig(forward_filename, reverse_filename, chrom_sizes=CHROM_SIZES_HG38)
 
             os.path.exists(forward_filename)
             os.path.exists(reverse_filename)
