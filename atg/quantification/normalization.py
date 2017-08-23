@@ -1,9 +1,5 @@
 import pandas
 import numpy as np
-import statsmodels
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
-import warnings
 
 
 DEFAULT_ASYMPTOTIC_DISPERSION = 0.01
@@ -149,82 +145,9 @@ def rle_normalization(count_df):
     return count_df.div(size_factor, axis=1)
 
 
-def _dispersion_genewise_mle(normalized_count_df, min_dispersion=1e-8):
-    gene_mean = normalized_count_df.mean(axis=1)
-
-    uncorrected_dispersion = ((((normalized_count_df.subtract(gene_mean, axis=0)) ** 2)
-                                                    .subtract(gene_mean, axis=0))
-                                                    .div(gene_mean ** 2, axis=0)).sum(axis=1)
-    corrected_dispersion = uncorrected_dispersion/(normalized_count_df.shape[1]-1)
-
-    return corrected_dispersion.clip(lower=min_dispersion)
-
-
-def _fit_vst_parameters(count_df, sample_size=1000, min_mean_count=5.0, min_dispersion=1e-8):
-    """
-
-    :param count_df:
-    :return:
-    """
-
-    normalized_count_df = rle_normalization(count_df)
-
-    # ignore genes below the count threshold
-    normalized_count_df['baseMean'] = normalized_count_df.mean(axis=1)
-    detected_count_df = (normalized_count_df.query('baseMean >= @min_mean_count')
-                                            .sort_values('baseMean'))
-
-    # build sub-dataframe from genes spanning a range of genewise average expression
-    spaced_index = np.linspace(0, detected_count_df.shape[0]-1, num=sample_size, dtype=int)
-    sample_count_df = detected_count_df.iloc[spaced_index, 0:-1]
-    dispersion_mle = _dispersion_genewise_mle(sample_count_df, min_dispersion)
-
-    # for parametric fit, ignore genes with very low dispersion
-    dispersion_for_fit = dispersion_mle[dispersion_mle > min_dispersion*100]
-    dispersion_fit_df = dispersion_for_fit.to_frame(name="dispersion").join(normalized_count_df.ix[:, 'baseMean'])
-
-    formula = 'dispersion ~ I(1/baseMean)'
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', message="The identity link function does not respect the domain of the "
-                                                  "Gamma family.")
-        model = smf.glm(formula=formula, data=dispersion_fit_df,
-                        family=sm.families.Gamma(link=statsmodels.genmod.families.links.identity)).fit()
-
-    return model.params
-
-
-def vst_transformation(count_df, asymptotic_dispersion=None, extra_poisson=None):
-    """
-    apply a variance stabilizing transformation to a count matrix, as in DESeq2.
-
-    :param count_df:
-    :param asymptotic_dispersion: aka "a0"
-    :param extra_poisson: aka "a1"
-    :return:
-    """
-
-    normalized_count_df = rle_normalization(count_df)
-
-    asymptotic_dispersion_fit, extra_poisson_fit = _fit_vst_parameters(count_df)
-
-    if asymptotic_dispersion and extra_poisson:
-        pass
-    else:
-        if not extra_poisson:
-            extra_poisson = extra_poisson_fit
-        if not asymptotic_dispersion:
-            asymptotic_dispersion = asymptotic_dispersion_fit
-
-    return (np.log((1 + extra_poisson + 2 * asymptotic_dispersion * normalized_count_df +
-                    2 * np.sqrt(asymptotic_dispersion * normalized_count_df *
-                        (1 + extra_poisson + asymptotic_dispersion * normalized_count_df)))
-                    / (4 * asymptotic_dispersion))
-            / np.log(2))
-
-
 def fpkm(count_df, length_df):
     fpm_df = count_df.div(count_df.sum()/10**6)
-    fpkm_df = fpm_df.div(length_df.iloc[:,0]/1000, axis="index")
+    fpkm_df = fpm_df.div(length_df.iloc[:, 0]/1000, axis="index")
     return fpkm_df
 
 
@@ -241,9 +164,6 @@ def normalize_counts(namespace):
 
     elif namespace.method == 'rle':
         normalized_df = rle_normalization(count_df)
-
-    elif namespace.method == 'vst':
-        normalized_df = vst_transformation(count_df)
 
     elif namespace.method == 'fpkm':
         if not namespace.length:
@@ -264,7 +184,7 @@ def setup_subparsers(subparsers):
 
     normalization_parser.add_argument('count_filename', help="delimited file containing read counts")
     normalization_parser.add_argument('output_filename', help="")
-    normalization_parser.add_argument('-m', '--method', default="TMM", choices=['tmm', 'cpm', 'voom', 'rle', 'vst', 'fpkm'],
+    normalization_parser.add_argument('-m', '--method', default="TMM", choices=['tmm', 'cpm', 'voom', 'rle', 'fpkm'],
                                       help="tmm: weighted Trimmed Mean of M-values; "
                                            "cpm: Counts Per Million reads"
                                            "voom: log2 count after TMM"

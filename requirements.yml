@@ -9,7 +9,6 @@ dependencies:
 - nose
 - numpy
 - pandas
-- statsmodels
 - scipy
 - matplotlib
 - seaborn
