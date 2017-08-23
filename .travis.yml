@@ -14,7 +14,7 @@ install:
   - conda config --add channels bioconda
   - conda info -a
   - conda env create -q --file requirements.yml
-  - source activate
+  - source activate atg
 
 before_script:
   - "export DISPLAY=:99.0"
