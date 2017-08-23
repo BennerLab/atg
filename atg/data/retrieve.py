@@ -96,8 +96,12 @@ class ATGDataTracker:
 
     """
 
-    def __init__(self):
-        self.data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
+    def __init__(self, data_root=None):
+        if data_root:
+            self.data_root = data_root
+        else:
+            self.data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
+
         self.config = configparser.ConfigParser(default_section="Common",
                                                 interpolation=configparser.ExtendedInterpolation())
         self.config.read(DATA_SOURCE_PATH)
