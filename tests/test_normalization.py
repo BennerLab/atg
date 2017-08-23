@@ -38,29 +38,5 @@ class CountNormalizationTest(unittest.TestCase):
         transformed_count = atg.quantification.normalization.rle_normalization(self.read_count_df)
         numpy.testing.assert_almost_equal(DESEQ2_RLE_VCP, transformed_count.ix['VCP', :], decimal=3)
 
-    def test_vst_transformation(self):
-        # try specific parameters from a DESeq2 run
-        transformed_count = atg.quantification.normalization.vst_transformation(self.read_count_df,
-                                                                                asymptotic_dispersion=0.103449,
-                                                                                extra_poisson=3.356251)
-        numpy.testing.assert_almost_equal(DESEQ2_VST_VCP, transformed_count.ix['VCP', :], decimal=3)
-
-        # even without fitted parameters, the vst will be somewhat similar for high expression values
-        transformed_count = atg.quantification.normalization.\
-            vst_transformation(self.read_count_df,
-                               asymptotic_dispersion=atg.quantification.normalization.DEFAULT_ASYMPTOTIC_DISPERSION,
-                               extra_poisson=atg.quantification.normalization.DEFAULT_EXTRA_POISSON)
-        numpy.testing.assert_almost_equal(DESEQ2_VST_VCP, transformed_count.ix['VCP', :], decimal=1)
-
-        transformed_count = atg.quantification.normalization.\
-            vst_transformation(self.read_count_df,
-                               asymptotic_dispersion=atg.quantification.normalization.DEFAULT_ASYMPTOTIC_DISPERSION)
-        numpy.testing.assert_almost_equal(DESEQ2_VST_VCP, transformed_count.ix['VCP', :], decimal=1)
-
-        # use the simple MLE dispersions to calculate vst parameters
-        transformed_count = atg.quantification.normalization.vst_transformation(self.read_count_df)
-        numpy.testing.assert_almost_equal(DESEQ2_VST_VCP, transformed_count.ix['VCP', :], decimal=2)
-
-
 if __name__ == '__main__':
     unittest.main()
