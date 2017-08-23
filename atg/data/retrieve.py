@@ -11,6 +11,7 @@ import gzip
 import configparser
 import atg.config
 import atg.data
+import atg.data.ontology
 
 DATA_SOURCE_PATH = os.path.join(os.path.dirname(__file__), 'data_sources.ini')
 GENOME_FILES = [
@@ -135,6 +136,28 @@ class ATGDataTracker:
             else:
                 fetch_url(current_url, current_path, overwrite=overwrite)
 
+    def derive_data(self, genome, overwrite=False):
+        """
+        Generate additional data files from raw retrieved data, e.g. GO biological process info.
+
+        :param genome:
+        :param overwrite:
+        :return:
+        """
+
+        if not self.check_annotation(genome):
+            print('%s is not an available genome.' % genome, file=sys.stderr)
+            return False
+
+        go_term_filename = os.path.join(self.genome_path[genome], "gene_go.csv")
+        go_biological_process_filename = os.path.join(self.genome_path[genome], "go_biological_process.csv")
+
+        if not overwrite and os.path.exists(go_biological_process_filename):
+            return True
+
+        go_biological_process_df = atg.data.ontology.process_ontology(go_term_filename)
+        go_biological_process_df.to_csv(go_biological_process_filename, index=False)
+
 
 def retrieve_data(namespace):
     tracker = ATGDataTracker()
@@ -147,6 +170,7 @@ def retrieve_data(namespace):
         print('', file=sys.stderr)
     else:
         tracker.retrieve_data(namespace.organism, namespace.overwrite)
+        tracker.derive_data(namespace.organism, namespace.overwrite)
 
 
 def setup_subparsers(subparsers):

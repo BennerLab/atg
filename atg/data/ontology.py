@@ -7,7 +7,7 @@ import pronto
 import pandas
 
 
-def process_ontology(ontology_file, gene_term_file):
+def process_ontology(gene_term_file, ontology_file='http://purl.obolibrary.org/obo/go/go-basic.obo'):
     ont = pronto.Ontology(ontology_file)
     gene_term_df = pandas.read_csv(gene_term_file, usecols=[0, 1]).dropna().drop_duplicates()
 
@@ -28,8 +28,5 @@ def process_ontology(ontology_file, gene_term_file):
 
     complete_gene_term_df = pandas.concat(df_list, ignore_index=True)
     complete_gene_term_df.to_csv('/tmp/go_biological_process.csv', index=False)
+    return complete_gene_term_df
 
-
-if __name__ == '__main__':
-    process_ontology("/Users/mchang/Downloads/go-basic.obo", "/Users/mchang/ATGData/human/GRCh38/gene_go.csv")
-    process_ontology("/Users/mchang/Downloads/go-basic.obo", "/Users/mchang/ATGData/mouse/GRCm38/gene_go.csv")
