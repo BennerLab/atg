@@ -13,8 +13,8 @@ install:
   - conda config --add channels r
   - conda config --add channels bioconda
   - conda info -a
-  - conda create -q -n test-environment python=3 --file requirements.txt
-  - source activate test-environment
+  - conda env create -q --file requirements.yml
+  - source activate atg
 
 before_script:
   - "export DISPLAY=:99.0"
@@ -23,7 +23,7 @@ before_script:
   - cp ATGConfig.txt.template ATGConfig.txt
   - mkdir -p ~/ATGData/human/GRCh38
   - cp tests/data/hg38_chrom.sizes ~/ATGData/human/GRCh38/chrom.sizes
-  - wget -O ~/ATGData/human/GRCh38/gene_go.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/gene_go.csv
+  - wget -O ~/ATGData/human/GRCh38/go_biological_process.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_biological_process.csv
   - wget -O ~/ATGData/human/GRCh38/go_definition.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_definition.csv
 
 script: nosetests

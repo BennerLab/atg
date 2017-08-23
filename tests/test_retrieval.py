@@ -44,6 +44,33 @@ class RetrievalTest(unittest.TestCase):
             self.assertEqual(chromosome_df.shape[0], UCSC_CHROMOSOME_ENTRIES)
 
 
+class ATGDataTrackerTest(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.ATGDataTracker = atg.data.retrieve.ATGDataTracker(self.temp_dir.name)
+
+    def test_yeast_retrieval(self):
+        self.assertIn('yeast', os.listdir(self.temp_dir.name))
+        self.ATGDataTracker.retrieve_data('yeast')
+
+        # check that files all exist and have non-zero size
+        for genome_file in atg.data.retrieve.GENOME_FILES:
+            current_genome_file = os.path.join(self.temp_dir.name, "yeast", "R64-1-1", genome_file)
+            self.assertTrue(os.path.exists(current_genome_file))
+            self.assertGreater(os.path.getsize(current_genome_file), 0)
+
+        # check that the GO biological process file is created
+        go_bp_path = os.path.join(self.temp_dir.name, "yeast", "R64-1-1", "go_biological_process.csv")
+        self.assertFalse(os.path.exists(go_bp_path))
+
+        self.ATGDataTracker.derive_data('yeast')
+        self.assertTrue(os.path.exists(go_bp_path))
+        self.assertGreater(os.path.getsize(go_bp_path), 0)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+
 class EnsemblGenomesTest(unittest.TestCase):
     def setUp(self):
         self.ensembl_genomes = atg.data.ensembl.EnsemblSpecies()

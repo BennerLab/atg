@@ -14,13 +14,15 @@ GENE_COLUMN_LABEL_INDEX = 0
 GO_COLUMN_LABEL_INDEX = 1
 GO_DEFINITION_TERM_INDEX = 0
 GO_DEFINITION_ACCESSION_INDEX = 1
+GO_DEFINITION_DOMAIN_INDEX = 2
 PLOTTED_CHARACTER_LIMIT = 40
 DEFAULT_MAXIMUM_TERM_SIZE = 250
 TERMINAL_OUTPUT_LINES = 20
 
 
 def enrichment_significance(term_row):
-    return hypergeom.logsf(term_row['hit_count'], term_row['universe'], term_row['term_count'], term_row['list_size'])
+    return LOG10_FACTOR * hypergeom.logsf(term_row['hit_count']-1, term_row['universe'],
+                                          term_row['term_count'], term_row['list_size'])
 
 
 def p_adjust_bh(p, n=None):
@@ -51,13 +53,11 @@ class EnrichmentCalculator:
     """
 
     def __init__(self, gene_term_file, term_definition_file, maximum_size=DEFAULT_MAXIMUM_TERM_SIZE, minimum_size=3):
-        # TODO: filter by evidence code
-        gene_term_df = pandas.read_csv(gene_term_file).dropna()
+        self.term_definition = pandas.read_csv(term_definition_file).dropna()
 
+        gene_term_df = pandas.read_csv(gene_term_file)
         self.gene_column_label = gene_term_df.columns[GENE_COLUMN_LABEL_INDEX]
         self.go_column_label = gene_term_df.columns[GO_COLUMN_LABEL_INDEX]
-
-        gene_term_df.drop_duplicates([self.gene_column_label, self.go_column_label], inplace=True)
 
         term_count = gene_term_df[self.go_column_label].value_counts()
         relevant_terms = term_count[(term_count <= maximum_size) & (term_count >= minimum_size)]
@@ -66,12 +66,10 @@ class EnrichmentCalculator:
         self.term_count = self.gene_term_df[self.go_column_label].value_counts()
         self.universe = self.gene_term_df[self.gene_column_label].nunique()
 
-        self.term_description = pandas.read_csv(term_definition_file).dropna()
-
     def get_single_enrichment(self, gene_list, term, gene_universe=15000, gene_list_size=None):
         term_df = self.gene_term_df[self.gene_term_df[self.go_column_label] == term]
         n = len(term_df)
-        x = sum(term_df[self.gene_column_label].isin(gene_list))  # matched genes
+        x = sum(term_df[self.gene_column_label].isin(gene_list)) - 1  # matched genes
         N = gene_list_size if gene_list_size else len(gene_list)
 
         return hypergeom.logsf(x, gene_universe, n, N)
@@ -91,12 +89,12 @@ class EnrichmentCalculator:
 
         enrichment_df['universe'] = self.universe
         enrichment_df['list_size'] = alternate_gene_list_size if alternate_gene_list_size else len(gene_list)
-        enrichment_df['log_pvalue'] = enrichment_df.apply(enrichment_significance, axis=1, reduce=True) * LOG10_FACTOR
+        enrichment_df['log_pvalue'] = enrichment_df.apply(enrichment_significance, axis=1, reduce=True)
 
         # replace negative infinite p-values with a small constant
         enrichment_df['log_pvalue'].replace(-numpy.inf, LOG_P_VALUE_MINIMUM, inplace=True)
         enrichment_df['log_adjusted_pvalue'] = numpy.log10(p_adjust_bh(numpy.power(10, enrichment_df['log_pvalue']),
-                                                                       n=len(self.term_description)))
+                                                                       n=len(self.term_definition)))
         return enrichment_df.sort_values(['log_adjusted_pvalue', 'hit_count'], ascending=[True, False])
 
     def iterative_enrichment(self, gene_list, adj_log_p_value_threshold=-2.0):
@@ -139,8 +137,8 @@ class EnrichmentCalculator:
         else:
             enrichment_df = self.get_all_enrichment(gene_list)
 
-        annotated_enrichment_df = (enrichment_df.merge(self.term_description, left_index=True,
-                                                       right_on=self.term_description.columns
+        annotated_enrichment_df = (enrichment_df.merge(self.term_definition, left_index=True,
+                                                       right_on=self.term_definition.columns
                                                        [GO_DEFINITION_ACCESSION_INDEX])
                                                 .query('log_adjusted_pvalue < @log_pvalue_threshold')
                                                 .sort_values('log_adjusted_pvalue')
@@ -149,7 +147,7 @@ class EnrichmentCalculator:
         
         sns.set(style='whitegrid')
         plt.figure()
-        plot = sns.stripplot(x='display_log_pvalue', y=self.term_description.columns[GO_DEFINITION_TERM_INDEX],
+        plot = sns.stripplot(x='display_log_pvalue', y=self.term_definition.columns[GO_DEFINITION_TERM_INDEX],
                              data=annotated_enrichment_df, orient='h', edgecolor='gray', palette="Reds_r")
         plot.set_xlabel(r'$-log_{10}(p)$')
         plot.set_ylabel('')
@@ -228,11 +226,11 @@ class EnrichmentCalculator:
         enrichment_results_df = self.iterative_enrichment_multilist(multi_gene_list)
 
         # replace accession numbers with GO term descriptions
-        formatted_enrichment_df = enrichment_results_df.merge(self.term_description, left_index=True,
+        formatted_enrichment_df = enrichment_results_df.merge(self.term_definition, left_index=True,
                                                               right_on='GO term accession')
         formatted_enrichment_df['GO term'] = (formatted_enrichment_df['GO term name'] + '\n[' +
                                               formatted_enrichment_df['GO term accession'] + ']')
-        formatted_enrichment_df.drop(self.term_description.columns, axis=1, inplace=True)
+        formatted_enrichment_df.drop(self.term_definition.columns, axis=1, inplace=True)
         formatted_enrichment_df.set_index('GO term', inplace=True)
 
         sns.set(style='whitegrid')
@@ -256,7 +254,7 @@ def run_enrichment(namespace):
 
     # get a translator ready even if it's not needed
     translator = atg.data.identifiers.GeneIDTranslator(species)
-    go_term_path = os.path.join(atg.data.genome_path[species], 'gene_go.csv')
+    go_term_path = os.path.join(atg.data.genome_path[species], 'go_biological_process.csv')
     go_definition_path = os.path.join(atg.data.genome_path[species], 'go_definition.csv')
 
     maximum_size = DEFAULT_MAXIMUM_TERM_SIZE
@@ -270,9 +268,13 @@ def run_enrichment(namespace):
         gene_list = translator.translate_identifiers(input_gene_series, input_type=None, output_type='ensembl')
 
         if namespace.plot:
-            calculator.plot_enrichment_single(gene_list, output_filename=namespace.plot, iterative=True)
+            calculator.plot_enrichment_single(gene_list, output_filename=namespace.plot, iterative=not namespace.full)
         else:
-            enrichment_result = calculator.iterative_enrichment(gene_list)
+            if namespace.full:
+                enrichment_result = calculator.get_all_enrichment(gene_list)
+            else:
+                enrichment_result = calculator.iterative_enrichment(gene_list)
+
             if namespace.output:
                 enrichment_result.reset_index().to_csv(namespace.output, index=False)
             else:
@@ -298,7 +300,6 @@ def run_enrichment(namespace):
                 enrichment_result.reset_index().ix[0:TERMINAL_OUTPUT_LINES, ].to_string(sys.stdout, index=False)
 
 
-
 def setup_subparsers(subparsers):
     enrichment_parser = subparsers.add_parser('enrich', help='Gene set enrichment')
     enrichment_parser.add_argument('filename', help="One or more single-column files containing gene identifiers",
@@ -307,5 +308,7 @@ def setup_subparsers(subparsers):
     enrichment_parser.add_argument('-n', dest='term_size_limit', default=DEFAULT_MAXIMUM_TERM_SIZE, type=int)
     enrichment_parser.add_argument('-p', '--plot', help="filename for graphical output")
     enrichment_parser.add_argument('-o', '--output', help="filename for tabular output")
+    enrichment_parser.add_argument('-f', '--full', action="store_true", help="Report full enrichment analysis "
+                                                                             "for single gene list input")
 
     enrichment_parser.set_defaults(func=run_enrichment)
