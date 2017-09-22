@@ -37,6 +37,18 @@ class GeneIDTranslator:
                                                .sort_values(['chr_strlen', 'chromosome'])
                                                .drop(['chr_strlen', 'chromosome'], axis=1))
 
+    def get_ensembl_id(self, input_id):
+        input_as_series = pandas.Series([input_id])
+        id_type = guess_identifier_type(input_as_series)
+        if id_type == 'ensembl':
+            return input_id
+        else:
+            return_series = self.translate_identifiers(input_as_series, id_type, 'ensembl')
+            if len(return_series.dropna()) > 0:
+                return return_series[0]
+            else:
+                return None
+
     def translate_identifiers(self, input_series, input_type, output_type):
         """
         get a Series of translated IDs
