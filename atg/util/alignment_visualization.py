@@ -1,43 +1,71 @@
 import os
+import sys
 import pandas
 import argparse
+import atg.data
 import atg.data.identifiers
 from rpy2.robjects import r
 from rpy2.robjects.packages import importr
 
 
-def visualize_locus(locus, flank_size, species, output):
+def visualize_locus(locus, alignment_list, flank_size, species, output, ucsc=False):
+    if output.endswith('.png'):
+        output_command = 'png("%s", height=3, width=4)' % output
+    elif output.endswith('.pdf'):
+        output_command = 'pdf("%s", height=6, width=8)' % output
+    else:
+        print('Output filename must end in .png or .pdf\n', file=sys.stderr)
+        return
+
+    # get relevant species information
+    if not atg.data.config.has_section(species):
+        print('%s is not an available species. Try one of the following:\n%s\n' %
+              (species, ' '.join(atg.data.config.sections())), file=sys.stderr)
+        return
+    ensembl_shortname = atg.data.config.get(species, 'ensembl_shortname')
+    ensembl_genome = atg.data.config.get(species, 'ensembl_genome')
+
     # get genome range from locus input
     if ':' in locus:
-        genome_location = locus
         chromosome, start, end = locus.replace(':', '-').split('-')
     else:
         translator = atg.data.identifiers.GeneIDTranslator(species)
         ensembl_id = translator.get_ensembl_id(locus)
+        if not ensembl_id:
+            print("Couldn't find a gene ID for %s in %s.\n" % (locus, species))
+            return
         gene_annotation = pandas.read_csv(os.path.join(atg.data.genome_path[species], 'ensembl_gene.csv'), index_col=0)
         chromosome, start, end = tuple(gene_annotation.loc[ensembl_id].iloc[1:4])
         start -= flank_size
         end += flank_size
 
-    print(chromosome, start, end)
-
+    # import libraries and set options
     biomart = importr('biomaRt')
     Gviz = importr('Gviz')
 
-    r('options(ucscChromosomeNames=FALSE)')
-    r('pdf("/tmp/gviz_test.pdf", height=3, width=4)')
+    if not ucsc:
+        r('options(ucscChromosomeNames=FALSE)')
 
-    r('mart <- useMart(biomart="ensembl", dataset="hsapiens_gene_ensembl")')
-    r('biomTrack <- BiomartGeneRegionTrack(genome = "GRCh38", chromosome = "%s", start = %d, end = %d, '
+    # get annotation for relevant region
+    r('mart <- useMart(biomart="ensembl", dataset="%s_gene_ensembl")' % (ensembl_shortname))
+    r('biomTrack <- BiomartGeneRegionTrack(genome = "%s", chromosome = "%s", start = %s, end = %s, '
       'name = "Genes", biomart = mart, collapseTranscripts="longest", transcriptAnnotation="symbol")' %
-      (chromosome, start, end))
+      (ensembl_genome, chromosome, start, end))
 
-    r('plotTracks(list(biomTrack), chromosome="%s", from=%d, to=%d)' % (chromosome, start, end))
+    # construct list of tracks
+    r('track_list <- list(biomTrack)')
+
+    for i, alignment_filename in enumerate(alignment_list):
+        alignment_basename = os.path.splitext(os.path.basename(alignment_filename))[0]
+        r('track_list[%d] <- AlignmentsTrack("%s", name="%s")' % (i+2, alignment_filename, alignment_basename))
+
+    r(output_command)
+    r('plotTracks(track_list, chromosome="%s", from=%s, to=%s)' % (chromosome, start, end))
     r('dev.off()')
 
 
 def run_visualization(namespace):
-    visualize_locus(namespace.locus, namespace.flank, namespace.organism, namespace.output)
+    visualize_locus(namespace.locus, namespace.alignment_files, namespace.flank, namespace.organism, namespace.output)
 
 
 def setup_subparsers(subparsers):
