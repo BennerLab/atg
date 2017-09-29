@@ -2,6 +2,7 @@ import os
 import sys
 import pandas
 import argparse
+import warnings
 import atg.data
 import atg.data.identifiers
 from rpy2.robjects import r
@@ -10,7 +11,7 @@ from rpy2.robjects.packages import importr
 
 def visualize_locus(locus, alignment_list, flank_size, species, output, ucsc=False):
     if output.endswith('.png'):
-        output_command = 'png("%s", height=3, width=4)' % output
+        output_command = 'png("%s", height=600, width=800)' % output
     elif output.endswith('.pdf'):
         output_command = 'pdf("%s", height=6, width=8)' % output
     else:
@@ -41,7 +42,11 @@ def visualize_locus(locus, alignment_list, flank_size, species, output, ucsc=Fal
 
     # import libraries and set options
     biomart = importr('biomaRt')
+
+    # suppress warnings from Gviz
+    warnings.filterwarnings('ignore', category=UserWarning)
     Gviz = importr('Gviz')
+    warnings.resetwarnings()
 
     if not ucsc:
         r('options(ucscChromosomeNames=FALSE)')
@@ -65,7 +70,8 @@ def visualize_locus(locus, alignment_list, flank_size, species, output, ucsc=Fal
 
 
 def run_visualization(namespace):
-    visualize_locus(namespace.locus, namespace.alignment_files, namespace.flank, namespace.organism, namespace.output)
+    visualize_locus(namespace.locus, namespace.alignment_files, namespace.flank, namespace.organism, namespace.output,
+                    namespace.ucsc)
 
 
 def setup_subparsers(subparsers):
@@ -76,7 +82,8 @@ def setup_subparsers(subparsers):
     retrieval_parser.add_argument('alignment_files', nargs='*', help='Sorted BAM files')
     retrieval_parser.add_argument('-f', '--flank', type=int, default=2000,
                                   help="number of flanking nucleotides to show (default:2000)")
-    retrieval_parser.add_argument('-o', '--organism', default="human")
+    retrieval_parser.add_argument('-o', '--organism', default="human", help="Common name of a species (default: human)")
+    retrieval_parser.add_argument('-u', '--ucsc', action='store_true', help="Alignments use UCSC chromosome names")
     retrieval_parser.set_defaults(func=run_visualization)
 
 
