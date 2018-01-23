@@ -10,7 +10,8 @@ install:
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
-  - conda config --add channels r
+  - conda config --add channels defaults
+  - conda config --add channels conda-forge
   - conda config --add channels bioconda
   - conda info -a
   - conda env create -q --file requirements.yml
@@ -27,3 +28,4 @@ before_script:
   - wget -O ~/ATGData/human/GRCh38/go_definition.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_definition.csv
 
 script: nosetests
+
