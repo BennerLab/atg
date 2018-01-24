@@ -12,6 +12,9 @@ dependencies:
 - scipy
 - matplotlib
 - seaborn
+- rpy2
+- bioconductor-gviz
+- bioconductor-biomart
 - pip
 - pip:
     - pronto
