@@ -7,6 +7,7 @@ import atg.data
 import atg.data.identifiers
 from rpy2.robjects import r
 from rpy2.robjects.packages import importr
+from rpy2.rinterface import RRuntimeWarning
 
 
 def visualize_locus(locus, alignment_list, flank_size, species, output, ucsc=False):
@@ -41,10 +42,10 @@ def visualize_locus(locus, alignment_list, flank_size, species, output, ucsc=Fal
         end += flank_size
 
     # import libraries and set options
-    biomart = importr('biomaRt')
-
-    # suppress warnings from Gviz
+    # suppress warnings from Gviz and biomaRt
     warnings.filterwarnings('ignore', category=UserWarning)
+    warnings.filterwarnings("ignore", category=RRuntimeWarning)
+    biomart = importr('biomaRt')
     Gviz = importr('Gviz')
     warnings.resetwarnings()
 
