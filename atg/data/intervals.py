@@ -2,35 +2,40 @@
 
 """
 
-import os
 import sys
-import pandas
 import atg.config
 import atg.data
 
 
+def ucsc_chromosomes(interval_df):
+    return (interval_df.loc[interval_df['chrom'].str.len() <= 2, :]
+                       .replace({'chrom': {'MT': 'M'}})
+                       .assign(chrom='chr' + interval_df['chrom']))
+
+
 def generate_gene_bed(organism, gene_type=None, ucsc_names=False):
-    gene_annotation_path = os.path.join(atg.data.genome_path[organism], 'ensembl_gene.csv')
-    gene_df = pandas.read_csv(gene_annotation_path)
-    bed_df = gene_df.loc[:, ['Chromosome/scaffold name', 'Gene start (bp)', 'Gene end (bp)', 'Transcript count',
-                             'Gene name', 'Strand', 'Gene type']]
-    bed_df.replace({'Strand': {-1: '-', 1: '+'}}, inplace=True)
-    bed_df.rename(index=str, columns={'Chromosome/scaffold name': 'chrom', 'Gene start (bp)': 'start',
-                                      'Gene end (bp)': 'end'}, inplace=True)
+    bed_df = atg.data.get_gene_bed6(organism)
 
     if gene_type:
         bed_df = bed_df.loc[bed_df['Gene type'] == gene_type]
 
     if ucsc_names:
-        bed_df = bed_df.loc[bed_df['chrom'].str.len() <= 2, :]
-        bed_df.replace({'chrom': {'MT': 'M'}}, inplace=True)
-        bed_df['chrom'] = 'chr' + bed_df['chrom']
+        bed_df = ucsc_chromosomes(bed_df)
 
     bed_df.iloc[:, 0:6].sort_values(['chrom', 'start', 'end']).to_csv(sys.stdout, header=None, sep='\t', index=False)
 
 
-def generate_tss_bed(organism, gene_type=None, ucsc_names=False):
-    pass
+def generate_tss_bed(organism, transcript_type=None, ucsc_names=False):
+    transcript_df = atg.data.get_tss_bed6(organism, level='symbol')
+
+    if transcript_type:
+        transcript_df = transcript_df.loc[transcript_df['Transcript type'] == transcript_type]
+
+    if ucsc_names:
+        transcript_df = ucsc_chromosomes(transcript_df)
+
+    transcript_df.iloc[:, 0:6].sort_values(['chrom', 'start', 'end']).drop_duplicates().to_csv(sys.stdout, header=None,
+                                                                                               sep='\t', index=False)
 
 
 def generate_intervals(namespace):
@@ -39,12 +44,9 @@ def generate_intervals(namespace):
               (namespace.organism, ' '.join(sorted(atg.data.genome_path.keys()))))
 
     if namespace.type == 'gene':
-        generate_gene_bed(namespace.organism, 'protein_coding', True)
-        # generate_gene_bed(namespace.organism, None, True)
-        # generate_gene_bed(namespace.organism, None, False)
-
+        generate_gene_bed(namespace.organism, namespace.protein, namespace.ucsc)
     elif namespace.type == 'tss':
-        generate_tss_bed(namespace.organism, None, namespace.ucsc)
+        generate_tss_bed(namespace.organism, namespace.protein, namespace.ucsc)
     else:
         raise ValueError('Invalid interval type selected.')
 
@@ -55,7 +57,8 @@ def setup_subparsers(subparsers):
                                                   "in the future, this will likely change to a common name")
     interval_parser.add_argument('type', choices=['gene', 'tss'], help='BED file for gene body or TSS')
     interval_parser.add_argument('--ucsc', help="Use UCSC chromosome names", action="store_true")
-    interval_parser.add_argument('-p', '--protein', help="Generate intervals only for protein-coding genes")
+    interval_parser.add_argument('-p', '--protein', help="Generate intervals only for protein-coding genes",
+                                 action='store_const', const='protein_coding')
     interval_parser.set_defaults(func=generate_intervals)
 
 
