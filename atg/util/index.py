@@ -54,7 +54,7 @@ class SequenceIndexer:
     def index_sequences(self, **kwargs):
         # write indexes to a a default directory if nothing is specified
         if kwargs['output']:
-            index_dir = kwargs['output']
+            index_dir = os.path.abspath(kwargs['output'])
         else:
             genome_path = os.path.abspath(kwargs['input'])
             genome_dir, genome_basename = os.path.split(genome_path)
