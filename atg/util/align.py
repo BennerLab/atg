@@ -169,10 +169,11 @@ class ReadAlignmentBase:
         else:
             for command in command_list:
                 subprocess.run(args=shlex.split(command), env=os.environ.copy())
+            self.postprocess()
 
         return True
 
-    def summarize_results(self):
+    def postprocess(self):
         pass
 
 
@@ -196,6 +197,7 @@ class STARAligner(ReadAlignmentBase):
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
         aligner_argument_parser = super(STARAligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('-q', '--quantify', action='store_true', help="count reads per gene")
         aligner_argument_parser.add_argument('-k', '--keep_unmapped', action='store_true',
                                              help="write unmapped reads to file")
         aligner_argument_parser.add_argument('--low_resource', action='store_true',
@@ -203,6 +205,8 @@ class STARAligner(ReadAlignmentBase):
         return aligner_argument_parser
 
     def get_command_list(self, read_files_dict, **kwargs):
+        extra_options = ' '.join(kwargs['extra'])
+
         command_list = []
         for sample_name in sorted(read_files_dict.keys()):
             output_file = os.path.join(kwargs['output'], sample_name)
@@ -219,12 +223,14 @@ class STARAligner(ReadAlignmentBase):
 
             if not kwargs['low_resource']:
                 additional_options += ' --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000'
-
-            extra_options = ' '.join(kwargs['extra'])
+            if kwargs['keep_unmapped']:
+                additional_options += ' --outReadsUnmapped Fastx'
+            if kwargs['quantify']:
+                additional_options += ' --quantMode GeneCounts'
 
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=read_files_dict[sample_name],
                                                                       basename=output_file, extra=extra_options) +
-                                                                      additional_options)
+                                additional_options)
         return command_list
 
 
@@ -233,7 +239,7 @@ class HISAT2Aligner(ReadAlignmentBase):
 
     def __init__(self):
         super().__init__()
-        self.command_template = string.Template("hisat2 --new-summary -x $index -p $threads $processed_input")
+        self.command_template = string.Template("hisat2 $extra --new-summary -x $index -p $threads $processed_input")
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -245,6 +251,8 @@ class HISAT2Aligner(ReadAlignmentBase):
         return aligner_argument_parser
 
     def get_command_list(self, read_files_dict, **kwargs):
+        extra_options = ' '.join(kwargs['extra'])
+
         command_list = []
         for sample_name in sorted(read_files_dict.keys()):
             output_file = os.path.join(kwargs['output'], sample_name)
@@ -265,8 +273,8 @@ class HISAT2Aligner(ReadAlignmentBase):
             additional_options += ' -S %s.sam' % output_file
 
             command_list.append(self.command_template.safe_substitute(kwargs, processed_input=processed_input,
-                                                                      output_basename=output_file) +
-                                additional_options)
+                                                                      output_basename=output_file, extra=extra_options)
+                                + additional_options)
         return command_list
 
     def align_reads(self, **kwargs):
