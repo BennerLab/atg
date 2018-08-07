@@ -75,7 +75,7 @@ def group_files_from_list(read_list, delimiter, force_pair=False):
     return read_files_strings
 
 
-class ReadAlignmentHelper:
+class ReadAlignmentBase:
     """
     A base class for NGS read aligners. Common functions are:
         - aligning reads from a list of file names
@@ -90,7 +90,7 @@ class ReadAlignmentHelper:
 
         """
         self.command_template = string.Template('echo [executable] --index $index --output $output --threads $threads '
-                                                '--input $input')
+                                                '--input $input $extra')
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -118,6 +118,8 @@ class ReadAlignmentHelper:
                                              default="_")
         aligner_argument_parser.add_argument('-p', '--force_pair', action="store_true",
                                              help='interpret "_2".fastq.gz as a paired-end read')
+        aligner_argument_parser.add_argument('extra', nargs=argparse.REMAINDER,
+                                             help='additional options to be passed through')
 
         return aligner_argument_parser
 
@@ -141,8 +143,9 @@ class ReadAlignmentHelper:
         command_list = []
         for sample_name in sorted(read_files_dict.keys()):
             output_file = os.path.join(kwargs['output'], sample_name)
+            extra_options = ' '.join(kwargs['extra'])
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=read_files_dict[sample_name],
-                                                                      basename=output_file))
+                                                                      basename=output_file, extra=extra_options))
         return command_list
 
     def align_reads(self, **kwargs):
@@ -173,7 +176,7 @@ class ReadAlignmentHelper:
         pass
 
 
-class STARAligner(ReadAlignmentHelper):
+class STARAligner(ReadAlignmentBase):
     name = 'star'
 
     def __init__(self):
@@ -185,7 +188,7 @@ class STARAligner(ReadAlignmentHelper):
         self.command_template = string.Template(
             "STAR --genomeDir $index --runThreadN $threads "
             "--readFilesIn $read_files --outFileNamePrefix $basename. "
-            "--outSAMtype BAM SortedByCoordinate")
+            "--outSAMtype BAM SortedByCoordinate $extra")
 
         # --genomeLoad LoadAndKeep
         # --limitBAMsortRAM 50000000000
@@ -217,12 +220,15 @@ class STARAligner(ReadAlignmentHelper):
             if not kwargs['low_resource']:
                 additional_options += ' --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000'
 
+            extra_options = ' '.join(kwargs['extra'])
+
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=read_files_dict[sample_name],
-                                                                      basename=output_file) + additional_options)
+                                                                      basename=output_file, extra=extra_options) +
+                                                                      additional_options)
         return command_list
 
 
-class HISAT2Aligner(ReadAlignmentHelper):
+class HISAT2Aligner(ReadAlignmentBase):
     name = 'hisat2'
 
     def __init__(self):
@@ -328,7 +334,7 @@ def setup_subparsers(subparsers):
     aligner_subparser = aligner_parser.add_subparsers(title="aligner", dest="aligner",
                                                         description="available alignment programs")
 
-    for aligner in [ReadAlignmentHelper, STARAligner, HISAT2Aligner]:
+    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner]:
         current_subparser = aligner_subparser.add_parser(aligner.name)
         aligner.get_argument_parser(current_subparser)
 
