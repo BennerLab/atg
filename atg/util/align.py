@@ -91,6 +91,8 @@ class ReadAlignmentBase:
         """
         self.command_template = string.Template('echo [executable] --index $index --output $output --threads $threads '
                                                 '--input $input $extra')
+        self.alignment_list = []
+        self.log_list = []
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -122,9 +124,6 @@ class ReadAlignmentBase:
                                              help='additional options to be passed through')
 
         return aligner_argument_parser
-
-    def format_output_name(self, output_path, sample_name):
-        return os.path.join(output_path, sample_name)
 
     def set_params(self):
         pass
@@ -169,11 +168,17 @@ class ReadAlignmentBase:
         else:
             for command in command_list:
                 subprocess.run(args=shlex.split(command), env=os.environ.copy())
-            self.postprocess()
 
         return True
 
-    def postprocess(self):
+    def process_alignments(self):
+        pass
+
+    def summarize_results(self):
+        pass
+
+    @classmethod
+    def parse_log(cls, filename):
         pass
 
 
@@ -185,14 +190,11 @@ class STARAligner(ReadAlignmentBase):
         run spliced alignment with STAR
             - assume BAM output
         """
-
+        super().__init__()
         self.command_template = string.Template(
             "STAR --genomeDir $index --runThreadN $threads "
             "--readFilesIn $read_files --outFileNamePrefix $basename. "
             "--outSAMtype BAM SortedByCoordinate $extra")
-
-        # --genomeLoad LoadAndKeep
-        # --limitBAMsortRAM 50000000000
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -231,7 +233,67 @@ class STARAligner(ReadAlignmentBase):
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=read_files_dict[sample_name],
                                                                       basename=output_file, extra=extra_options) +
                                 additional_options)
+
+            self.alignment_list.append(output_file + '.Aligned.sortedByCoord.out.bam')
+            self.log_list.append(output_file + '.Log.final.out')
         return command_list
+
+    def process_alignments(self):
+        for alignment_file in self.alignment_list:
+            new_alignment_filename = alignment_file.replace('.Aligned.sortedByCoord.out.bam', '.bam')
+            os.rename(alignment_file, new_alignment_filename)
+
+    def summarize_results(self):
+        summary_list = []
+        for log_file in self.log_list:
+            summary_list.append(self.parse_log(log_file))
+
+        # output a full result file containing all values from original Log.final.out
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('star_alignment_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+        simplified_df = result_df.loc[:, ['Sample', 'Number of input reads', 'Uniquely mapped reads number',
+                                          'Uniquely mapped reads %', '% of reads mapped to multiple loci']]
+        simplified_df.rename(index=str, columns={'Number of input reads': 'Total reads',
+                                                 'Uniquely mapped reads number': 'Uniquely mapped',
+                                                 'Uniquely mapped reads %': 'Unique %',
+                                                 '% of reads mapped to multiple loci': 'Multimapped %'},
+                             inplace=True)
+        simplified_df['Unmapped %'] = 1 - simplified_df['Unique %'] - simplified_df['Multimapped %']
+        simplified_df.to_csv('star_alignment_summary.txt', sep='\t', index=False)
+
+        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Uniquely mapped': '{:,}'.format,
+                                                               'Unique %': '{:.1%}'.format,
+                                                               'Multimapped %': '{:.1%}'.format,
+                                                               'Unmapped %': '{:.1%}'.format}))
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+        parse a STAR log, returning a pandas.Series
+        :return: a Series
+        """
+
+        log_entries = ['Sample']
+        log_values = [os.path.split(filename)[-1].replace('.Log.final.out', '')]
+
+        with open(filename) as log_input:
+            for line in log_input:
+                if 'Started' in line or 'Finished' in line:
+                    continue
+                elif '|' in line:
+                    name = line.split('|')[0].strip()
+                    value = line.split('|')[1].strip()
+                    if '%' in value or '.' in value:
+                        value = float(value[:-1]) / 100.0  # change % to float
+                    else:
+                        value = int(value)
+                    log_entries.append(name)
+                    log_values.append(value)
+        return pandas.Series(log_values, log_entries)
 
 
 class HISAT2Aligner(ReadAlignmentBase):
@@ -335,12 +397,14 @@ class HISAT2Aligner(ReadAlignmentBase):
 def run_aligner(namespace):
     aligner = namespace.Aligner()
     aligner.align_reads(**vars(namespace))
+    aligner.process_alignments()
+    aligner.summarize_results()
 
 
 def setup_subparsers(subparsers):
     aligner_parser = subparsers.add_parser('align', help='Align reads to reference genome/transcriptome')
     aligner_subparser = aligner_parser.add_subparsers(title="aligner", dest="aligner",
-                                                        description="available alignment programs")
+                                                      description="available alignment programs")
 
     for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner]:
         current_subparser = aligner_subparser.add_parser(aligner.name)
