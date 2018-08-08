@@ -234,8 +234,9 @@ class STARAligner(ReadAlignmentBase):
                                                                       basename=output_file, extra=extra_options) +
                                 additional_options)
 
-            self.alignment_list.append(output_file + '.Aligned.sortedByCoord.out.bam')
-            self.log_list.append(output_file + '.Log.final.out')
+            if not kwargs['check']:
+                self.alignment_list.append(output_file + '.Aligned.sortedByCoord.out.bam')
+                self.log_list.append(output_file + '.Log.final.out')
         return command_list
 
     def process_alignments(self):
@@ -244,6 +245,9 @@ class STARAligner(ReadAlignmentBase):
             os.rename(alignment_file, new_alignment_filename)
 
     def summarize_results(self):
+        if len(self.log_list) == 0:
+            return
+
         summary_list = []
         for log_file in self.log_list:
             summary_list.append(self.parse_log(log_file))
@@ -298,6 +302,7 @@ class STARAligner(ReadAlignmentBase):
 
 class HISAT2Aligner(ReadAlignmentBase):
     name = 'hisat2'
+    SINGLE_END_RESULT_COLUMNS = 5
 
     def __init__(self):
         super().__init__()
@@ -380,6 +385,7 @@ class HISAT2Aligner(ReadAlignmentBase):
                                                         stdout=subprocess.PIPE)
                         samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout)
                         samtools_sort.communicate()
+                    self.log_list.append(log_filename)
 
         else:
             for alignment_command in command_list:
@@ -390,9 +396,74 @@ class HISAT2Aligner(ReadAlignmentBase):
                     log_filename = output_basename + '.log'
                     with open(log_filename, 'w') as log:
                         subprocess.run(args=shlex.split(alignment_command), env=os.environ.copy(), stderr=log)
+                    self.log_list.append(log_filename)
 
         return True
 
+    def summarize_results(self):
+        if len(self.log_list) == 0:
+            return
+
+        summary_list = []
+        for log_file in self.log_list:
+            summary_list.append(self.parse_log(log_file))
+
+        # output a full result file containing all values from original Log.final.out
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('hisat2_alignment_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+
+        # paired/single end results have different column names
+        if result_df.shape[1] > HISAT2Aligner.SINGLE_END_RESULT_COLUMNS:
+            simplified_df = (result_df.loc[:, ['Sample', 'Total pairs', 'Aligned concordantly 1 time',
+                                               'Aligned concordantly >1 times',
+                                               'Aligned concordantly or discordantly 0 time']]
+                                      .rename(index=str,
+                                              columns={'Total pairs': 'Total reads',
+                                                       'Aligned concordantly 1 time': 'Uniquely mapped',
+                                                       'Aligned concordantly >1 times': 'Multimapped',
+                                                       'Aligned concordantly or discordantly 0 time': 'Unmapped'}))
+        else:
+            simplified_df = (result_df.loc[:, ['Sample', 'Total reads', 'Aligned 1 time', 'Aligned >1 times',
+                                               'Aligned 0 time']]
+                                      .rename(index=str,
+                                              columns={'Aligned 1 time': 'Uniquely mapped',
+                                                       'Aligned >1 times': 'Multimapped',
+                                                       'Aligned 0 time': 'Unmapped'}))
+
+        simplified_df['Unique %'] = simplified_df['Uniquely mapped']/simplified_df['Total reads']
+        simplified_df['Multimapped %'] = simplified_df['Multimapped'] / simplified_df['Total reads']
+        simplified_df['Unmapped %'] = simplified_df['Unmapped'] / simplified_df['Total reads']
+        simplified_df.drop(columns=['Multimapped', 'Unmapped'], inplace=True)
+
+        simplified_df.to_csv('hisat2_alignment_summary.txt', sep='\t', index=False)
+
+        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Uniquely mapped': '{:,}'.format,
+                                                               'Unique %': '{:.1%}'.format,
+                                                               'Multimapped %': '{:.1%}'.format,
+                                                               'Unmapped %': '{:.1%}'.format}))
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+         parse a HISAT2 log, returning a pandas.Series
+         :return: a Series
+         """
+
+        log_entries = ['Sample']
+        log_values = [os.path.split(filename)[-1].replace('.log', '')]
+
+        log_df = pandas.read_csv(filename, sep=":", header=None, names=['entry', 'value'], skipinitialspace=True,
+                                 skiprows=1, skipfooter=1, engine='python',
+                                 converters={'entry': str.strip, 'value': lambda x: int(x.split(' ')[0])})
+
+        log_entries += log_df.entry.tolist()
+        log_values += log_df.value.tolist()
+
+        return pandas.Series(log_values, log_entries)
 
 def run_aligner(namespace):
     aligner = namespace.Aligner()
