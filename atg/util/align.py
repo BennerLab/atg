@@ -75,7 +75,7 @@ def group_files_from_list(read_list, delimiter, force_pair=False):
     return read_files_strings
 
 
-class ReadAlignmentHelper:
+class ReadAlignmentBase:
     """
     A base class for NGS read aligners. Common functions are:
         - aligning reads from a list of file names
@@ -90,7 +90,9 @@ class ReadAlignmentHelper:
 
         """
         self.command_template = string.Template('echo [executable] --index $index --output $output --threads $threads '
-                                                '--input $input')
+                                                '--input $input $extra')
+        self.alignment_list = []
+        self.log_list = []
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -118,11 +120,10 @@ class ReadAlignmentHelper:
                                              default="_")
         aligner_argument_parser.add_argument('-p', '--force_pair', action="store_true",
                                              help='interpret "_2".fastq.gz as a paired-end read')
+        aligner_argument_parser.add_argument('extra', nargs=argparse.REMAINDER,
+                                             help='additional options to be passed through')
 
         return aligner_argument_parser
-
-    def format_output_name(self, output_path, sample_name):
-        return os.path.join(output_path, sample_name)
 
     def set_params(self):
         pass
@@ -141,8 +142,9 @@ class ReadAlignmentHelper:
         command_list = []
         for sample_name in sorted(read_files_dict.keys()):
             output_file = os.path.join(kwargs['output'], sample_name)
+            extra_options = ' '.join(kwargs['extra'])
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=read_files_dict[sample_name],
-                                                                      basename=output_file))
+                                                                      basename=output_file, extra=extra_options))
         return command_list
 
     def align_reads(self, **kwargs):
@@ -169,11 +171,18 @@ class ReadAlignmentHelper:
 
         return True
 
+    def process_alignments(self):
+        pass
+
     def summarize_results(self):
         pass
 
+    @classmethod
+    def parse_log(cls, filename):
+        pass
 
-class STARAligner(ReadAlignmentHelper):
+
+class STARAligner(ReadAlignmentBase):
     name = 'star'
 
     def __init__(self):
@@ -181,18 +190,16 @@ class STARAligner(ReadAlignmentHelper):
         run spliced alignment with STAR
             - assume BAM output
         """
-
+        super().__init__()
         self.command_template = string.Template(
             "STAR --genomeDir $index --runThreadN $threads "
             "--readFilesIn $read_files --outFileNamePrefix $basename. "
-            "--outSAMtype BAM SortedByCoordinate")
-
-        # --genomeLoad LoadAndKeep
-        # --limitBAMsortRAM 50000000000
+            "--outSAMtype BAM SortedByCoordinate $extra")
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
         aligner_argument_parser = super(STARAligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('-q', '--quantify', action='store_true', help="count reads per gene")
         aligner_argument_parser.add_argument('-k', '--keep_unmapped', action='store_true',
                                              help="write unmapped reads to file")
         aligner_argument_parser.add_argument('--low_resource', action='store_true',
@@ -200,6 +207,8 @@ class STARAligner(ReadAlignmentHelper):
         return aligner_argument_parser
 
     def get_command_list(self, read_files_dict, **kwargs):
+        extra_options = ' '.join(kwargs['extra'])
+
         command_list = []
         for sample_name in sorted(read_files_dict.keys()):
             output_file = os.path.join(kwargs['output'], sample_name)
@@ -216,18 +225,88 @@ class STARAligner(ReadAlignmentHelper):
 
             if not kwargs['low_resource']:
                 additional_options += ' --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000'
+            if kwargs['keep_unmapped']:
+                additional_options += ' --outReadsUnmapped Fastx'
+            if kwargs['quantify']:
+                additional_options += ' --quantMode GeneCounts'
 
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=read_files_dict[sample_name],
-                                                                      basename=output_file) + additional_options)
+                                                                      basename=output_file, extra=extra_options) +
+                                additional_options)
+
+            if not kwargs['check']:
+                self.alignment_list.append(output_file + '.Aligned.sortedByCoord.out.bam')
+                self.log_list.append(output_file + '.Log.final.out')
         return command_list
 
+    def process_alignments(self):
+        for alignment_file in self.alignment_list:
+            new_alignment_filename = alignment_file.replace('.Aligned.sortedByCoord.out.bam', '.bam')
+            os.rename(alignment_file, new_alignment_filename)
 
-class HISAT2Aligner(ReadAlignmentHelper):
+    def summarize_results(self):
+        if len(self.log_list) == 0:
+            return
+
+        summary_list = []
+        for log_file in self.log_list:
+            summary_list.append(self.parse_log(log_file))
+
+        # output a full result file containing all values from original Log.final.out
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('star_alignment_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+        simplified_df = result_df.loc[:, ['Sample', 'Number of input reads', 'Uniquely mapped reads number',
+                                          'Uniquely mapped reads %', '% of reads mapped to multiple loci']]
+        simplified_df.rename(index=str, columns={'Number of input reads': 'Total reads',
+                                                 'Uniquely mapped reads number': 'Uniquely mapped',
+                                                 'Uniquely mapped reads %': 'Unique %',
+                                                 '% of reads mapped to multiple loci': 'Multimapped %'},
+                             inplace=True)
+        simplified_df['Unmapped %'] = 1 - simplified_df['Unique %'] - simplified_df['Multimapped %']
+        simplified_df.to_csv('star_alignment_summary.txt', sep='\t', index=False)
+
+        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Uniquely mapped': '{:,}'.format,
+                                                               'Unique %': '{:.1%}'.format,
+                                                               'Multimapped %': '{:.1%}'.format,
+                                                               'Unmapped %': '{:.1%}'.format}))
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+        parse a STAR log, returning a pandas.Series
+        :return: a Series
+        """
+
+        log_entries = ['Sample']
+        log_values = [os.path.split(filename)[-1].replace('.Log.final.out', '')]
+
+        with open(filename) as log_input:
+            for line in log_input:
+                if 'Started' in line or 'Finished' in line:
+                    continue
+                elif '|' in line:
+                    name = line.split('|')[0].strip()
+                    value = line.split('|')[1].strip()
+                    if '%' in value or '.' in value:
+                        value = float(value[:-1]) / 100.0  # change % to float
+                    else:
+                        value = int(value)
+                    log_entries.append(name)
+                    log_values.append(value)
+        return pandas.Series(log_values, log_entries)
+
+
+class HISAT2Aligner(ReadAlignmentBase):
     name = 'hisat2'
+    SINGLE_END_RESULT_COLUMNS = 5
 
     def __init__(self):
         super().__init__()
-        self.command_template = string.Template("hisat2 --new-summary -x $index -p $threads $processed_input")
+        self.command_template = string.Template("hisat2 $extra --new-summary -x $index -p $threads $processed_input")
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
@@ -239,6 +318,8 @@ class HISAT2Aligner(ReadAlignmentHelper):
         return aligner_argument_parser
 
     def get_command_list(self, read_files_dict, **kwargs):
+        extra_options = ' '.join(kwargs['extra'])
+
         command_list = []
         for sample_name in sorted(read_files_dict.keys()):
             output_file = os.path.join(kwargs['output'], sample_name)
@@ -259,8 +340,8 @@ class HISAT2Aligner(ReadAlignmentHelper):
             additional_options += ' -S %s.sam' % output_file
 
             command_list.append(self.command_template.safe_substitute(kwargs, processed_input=processed_input,
-                                                                      output_basename=output_file) +
-                                additional_options)
+                                                                      output_basename=output_file, extra=extra_options)
+                                + additional_options)
         return command_list
 
     def align_reads(self, **kwargs):
@@ -304,6 +385,7 @@ class HISAT2Aligner(ReadAlignmentHelper):
                                                         stdout=subprocess.PIPE)
                         samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout)
                         samtools_sort.communicate()
+                    self.log_list.append(log_filename)
 
         else:
             for alignment_command in command_list:
@@ -314,21 +396,88 @@ class HISAT2Aligner(ReadAlignmentHelper):
                     log_filename = output_basename + '.log'
                     with open(log_filename, 'w') as log:
                         subprocess.run(args=shlex.split(alignment_command), env=os.environ.copy(), stderr=log)
+                    self.log_list.append(log_filename)
 
         return True
 
+    def summarize_results(self):
+        if len(self.log_list) == 0:
+            return
+
+        summary_list = []
+        for log_file in self.log_list:
+            summary_list.append(self.parse_log(log_file))
+
+        # output a full result file containing all values from original Log.final.out
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('hisat2_alignment_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+
+        # paired/single end results have different column names
+        if result_df.shape[1] > HISAT2Aligner.SINGLE_END_RESULT_COLUMNS:
+            simplified_df = (result_df.loc[:, ['Sample', 'Total pairs', 'Aligned concordantly 1 time',
+                                               'Aligned concordantly >1 times',
+                                               'Aligned concordantly or discordantly 0 time']]
+                                      .rename(index=str,
+                                              columns={'Total pairs': 'Total reads',
+                                                       'Aligned concordantly 1 time': 'Uniquely mapped',
+                                                       'Aligned concordantly >1 times': 'Multimapped',
+                                                       'Aligned concordantly or discordantly 0 time': 'Unmapped'}))
+        else:
+            simplified_df = (result_df.loc[:, ['Sample', 'Total reads', 'Aligned 1 time', 'Aligned >1 times',
+                                               'Aligned 0 time']]
+                                      .rename(index=str,
+                                              columns={'Aligned 1 time': 'Uniquely mapped',
+                                                       'Aligned >1 times': 'Multimapped',
+                                                       'Aligned 0 time': 'Unmapped'}))
+
+        simplified_df['Unique %'] = simplified_df['Uniquely mapped']/simplified_df['Total reads']
+        simplified_df['Multimapped %'] = simplified_df['Multimapped'] / simplified_df['Total reads']
+        simplified_df['Unmapped %'] = simplified_df['Unmapped'] / simplified_df['Total reads']
+        simplified_df.drop(columns=['Multimapped', 'Unmapped'], inplace=True)
+
+        simplified_df.to_csv('hisat2_alignment_summary.txt', sep='\t', index=False)
+
+        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Uniquely mapped': '{:,}'.format,
+                                                               'Unique %': '{:.1%}'.format,
+                                                               'Multimapped %': '{:.1%}'.format,
+                                                               'Unmapped %': '{:.1%}'.format}))
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+         parse a HISAT2 log, returning a pandas.Series
+         :return: a Series
+         """
+
+        log_entries = ['Sample']
+        log_values = [os.path.split(filename)[-1].replace('.log', '')]
+
+        log_df = pandas.read_csv(filename, sep=":", header=None, names=['entry', 'value'], skipinitialspace=True,
+                                 skiprows=1, skipfooter=1, engine='python',
+                                 converters={'entry': str.strip, 'value': lambda x: int(x.split(' ')[0])})
+
+        log_entries += log_df.entry.tolist()
+        log_values += log_df.value.tolist()
+
+        return pandas.Series(log_values, log_entries)
 
 def run_aligner(namespace):
     aligner = namespace.Aligner()
     aligner.align_reads(**vars(namespace))
+    aligner.process_alignments()
+    aligner.summarize_results()
 
 
 def setup_subparsers(subparsers):
     aligner_parser = subparsers.add_parser('align', help='Align reads to reference genome/transcriptome')
     aligner_subparser = aligner_parser.add_subparsers(title="aligner", dest="aligner",
-                                                        description="available alignment programs")
+                                                      description="available alignment programs")
 
-    for aligner in [ReadAlignmentHelper, STARAligner, HISAT2Aligner]:
+    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner]:
         current_subparser = aligner_subparser.add_parser(aligner.name)
         aligner.get_argument_parser(current_subparser)
 

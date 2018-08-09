@@ -5,6 +5,7 @@
       <w>benjamini</w>
       <w>biomart</w>
       <w>bunzip</w>
+      <w>concordantly</w>
       <w>deduplicated</w>
       <w>ensemblgenomes</w>
       <w>entrez</w>
@@ -14,6 +15,7 @@
       <w>hisat</w>
       <w>hochberg</w>
       <w>multilist</w>
+      <w>multimapped</w>
       <w>pvalue</w>
       <w>rnaseq</w>
       <w>samtools</w>
