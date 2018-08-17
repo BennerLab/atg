@@ -4,6 +4,7 @@ import subprocess
 import shlex
 import pandas
 import string
+import progress.bar
 
 DEFAULT_THREADS = max(1, subprocess.os.cpu_count() // 2)
 
@@ -90,7 +91,7 @@ class ReadAlignmentBase:
 
         """
         self.command_template = string.Template('echo [executable] --index $index --output $output --threads $threads '
-                                                '--input $input $extra')
+                                                '--input $read_files $extra')
         self.alignment_list = []
         self.log_list = []
 
@@ -166,8 +167,14 @@ class ReadAlignmentBase:
                 print(command)
 
         else:
+            progress_bar = progress.bar.Bar('Processed %(index)d/%(max)d',
+                                            suffix='Remaining: %(eta_td)s', max=len(command_list))
+            progress_bar.start()
             for command in command_list:
-                subprocess.run(args=shlex.split(command), env=os.environ.copy())
+                subprocess.run(args=shlex.split(command), env=os.environ.copy(), stdout=subprocess.DEVNULL)
+                progress_bar.next()
+            progress_bar.finish()
+            print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
 
         return True
 
@@ -356,6 +363,8 @@ class HISAT2Aligner(ReadAlignmentBase):
 
         read_files_dict = self.group_reads(**kwargs)
         command_list = self.get_command_list(read_files_dict, **kwargs)
+        progress_bar = progress.bar.Bar('Processed %(index)d/%(max)d', suffix='Remaining: %(eta_td)s',
+                                        max=len(command_list))
 
         if kwargs['bam']:
             samtools_bam_command = shlex.split('samtools view -u')
@@ -379,6 +388,7 @@ class HISAT2Aligner(ReadAlignmentBase):
                     ])
                     print(command_pipe)
                 else:
+                    progress_bar.update()
                     with open(log_filename, 'w') as log:
                         aligner = subprocess.Popen(alignment_command_list, stdout=subprocess.PIPE, stderr=log)
                         samtools_bam = subprocess.Popen(samtools_bam_command, stdin=aligner.stdout,
@@ -386,17 +396,23 @@ class HISAT2Aligner(ReadAlignmentBase):
                         samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout)
                         samtools_sort.communicate()
                     self.log_list.append(log_filename)
+                    progress_bar.next()
 
         else:
             for alignment_command in command_list:
                 if kwargs['check']:
                     print(alignment_command)
                 else:
+                    progress_bar.update()
                     output_basename = alignment_command.split()[-1][:-4]
                     log_filename = output_basename + '.log'
                     with open(log_filename, 'w') as log:
                         subprocess.run(args=shlex.split(alignment_command), env=os.environ.copy(), stderr=log)
                     self.log_list.append(log_filename)
+                    progress_bar.next()
+
+        progress_bar.finish()
+        print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
 
         return True
 
@@ -464,6 +480,7 @@ class HISAT2Aligner(ReadAlignmentBase):
         log_values += log_df.value.tolist()
 
         return pandas.Series(log_values, log_entries)
+
 
 def run_aligner(namespace):
     aligner = namespace.Aligner()
