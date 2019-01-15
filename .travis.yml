@@ -30,5 +30,5 @@ before_script:
   - wget -O ~/ATGData/human/GRCh38/go_biological_process.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_biological_process.csv
   - wget -O ~/ATGData/human/GRCh38/go_definition.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_definition.csv
 
-script: nosetests -a '!disabled'
+script: nosetests -a '!disabled' -a '!retrieval'
 
