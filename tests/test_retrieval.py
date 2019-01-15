@@ -13,7 +13,7 @@ UCSC_CHROMOSOME_ENTRIES = 455
 BIOMART_XML_FILE = os.path.join(os.path.dirname(__file__), 'data', 'GRCh38_chrY.xml')
 
 
-@attr(status='retrieval')
+@attr(status='disabled')
 class RetrievalTest(unittest.TestCase):
     def test_xml_fetch(self):
         with open(BIOMART_XML_FILE, 'r') as biomart_input:
@@ -46,7 +46,7 @@ class RetrievalTest(unittest.TestCase):
             self.assertEqual(chromosome_df.shape[0], UCSC_CHROMOSOME_ENTRIES)
 
 
-@attr(status='retrieval')
+@attr(status='disabled')
 class ATGDataTrackerTest(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -74,7 +74,7 @@ class ATGDataTrackerTest(unittest.TestCase):
         self.temp_dir.cleanup()
 
 
-@attr(status='retrieval')
+@attr(status='disabled')
 class EnsemblGenomesTest(unittest.TestCase):
     def setUp(self):
         self.ensembl_genomes = atg.data.ensembl.EnsemblSpecies()
