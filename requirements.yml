@@ -12,6 +12,7 @@ dependencies:
 - scipy
 - matplotlib
 - seaborn
+- progress
 - pip
 - pip:
     - pronto
