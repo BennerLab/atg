@@ -89,7 +89,7 @@ class EnrichmentCalculator:
 
         enrichment_df['universe'] = self.universe
         enrichment_df['list_size'] = alternate_gene_list_size if alternate_gene_list_size else len(gene_list)
-        enrichment_df['log_pvalue'] = enrichment_df.apply(enrichment_significance, axis=1, reduce=True)
+        enrichment_df['log_pvalue'] = enrichment_df.apply(enrichment_significance, axis=1, result_type='reduce')
 
         # replace negative infinite p-values with a small constant
         enrichment_df['log_pvalue'].replace(-numpy.inf, LOG_P_VALUE_MINIMUM, inplace=True)
