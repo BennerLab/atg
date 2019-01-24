@@ -7,10 +7,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 import atg.ucsc.track
 import atg.quantification.coverage
-import atg.quantification.normalization
 import atg.data.retrieve, atg.data.ensembl, atg.data.intervals
 import atg.stats.enrich
-import atg.util.index, atg.util.align, atg.util.alignment_visualization
+import atg.util.index, atg.util.align
 
 
 if __name__ == '__main__':
@@ -20,14 +19,12 @@ if __name__ == '__main__':
 
     atg.ucsc.track.setup_subparsers(subparsers)
     atg.quantification.coverage.setup_subparsers(subparsers)
-    atg.quantification.normalization.setup_subparsers(subparsers)
     atg.data.retrieve.setup_subparsers(subparsers)
     atg.data.ensembl.setup_subparsers(subparsers)
     atg.data.intervals.setup_subparsers(subparsers)
     atg.stats.enrich.setup_subparsers(subparsers)
     atg.util.index.setup_subparsers(subparsers)
     atg.util.align.setup_subparsers(subparsers)
-    atg.util.alignment_visualization.setup_subparsers(subparsers)
 
     args = parser.parse_args()
     args.func(args)
