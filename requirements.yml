@@ -13,6 +13,11 @@ dependencies:
 - matplotlib
 - seaborn
 - progress
+- r::r-base
+- rpy2
+- bioconductor-deseq2
+- bioconductor-gviz
+- bioconductor-biomart
 - pip
 - pip:
     - pronto
