@@ -14,7 +14,6 @@ LIMMA_VOOM_VCP = [8.969148, 9.078111, 9.149407, 8.431966, 8.306551, 8.561956]
 DESEQ2_RLE_VCP = [8992.780, 9696.668, 10353.559, 6477.756, 5843.696, 7006.906]
 DESEQ2_VST_VCP = [13.13792, 13.24640, 13.34077, 12.66596, 12.51785, 12.77889]
 
-@attr(status='disabled')
 class CountNormalizationTest(unittest.TestCase):
     def setUp(self):
         self.read_count_df = pandas.read_csv(RNASEQ_COUNT_FILE, index_col=0)
