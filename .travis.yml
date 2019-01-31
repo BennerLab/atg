@@ -33,5 +33,5 @@ before_script:
   - wget -O ~/ATGData/human/GRCh38/ensembl_gene.csv http://homer.ucsd.edu/mchang/ATGData/human/GRCh38/ensembl_gene.csv
   - wget -O ~/ATGData/mouse/GRCm38/ensembl_gene.csv http://homer.ucsd.edu/mchang/ATGData/mouse/GRCm38/ensembl_gene.csv
 
-script: nosetests -a '!disabled' -I retrieval
+script: nosetests -I retrieval
 
