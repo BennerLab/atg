@@ -20,15 +20,4 @@ install:
   - source activate atg
   - conda list
 
-before_script:
-  - cp ATGConfig.txt.template ATGConfig.txt
-  - mkdir -p ~/ATGData/human/GRCh38
-  - mkdir -p ~/ATGData/mouse/GRCm38
-  - cp tests/data/hg38_chrom.sizes ~/ATGData/human/GRCh38/chrom.sizes
-  - wget -O ~/ATGData/human/GRCh38/go_biological_process.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_biological_process.csv
-  - wget -O ~/ATGData/human/GRCh38/go_definition.csv http://homer.ucsd.edu/mchang/ATGData/human/Current/hg38/go_definition.csv
-  - wget -O ~/ATGData/human/GRCh38/ensembl_gene.csv http://homer.ucsd.edu/mchang/ATGData/human/GRCh38/ensembl_gene.csv
-  - wget -O ~/ATGData/mouse/GRCm38/ensembl_gene.csv http://homer.ucsd.edu/mchang/ATGData/mouse/GRCm38/ensembl_gene.csv
-
-script: python -m pytest -k 'not retrieval'
-
+script: python -m pytest --collect-only
