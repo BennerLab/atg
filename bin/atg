@@ -7,24 +7,23 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 import atg.ucsc.track
 import atg.quantification.coverage
-import atg.data.retrieve, atg.data.ensembl, atg.data.intervals
+import atg.data, atg.data.intervals
 import atg.stats.enrich
 import atg.util.index, atg.util.align
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest="command", help='commands')
+    subparsers = parser.add_subparsers(dest="command", help='atg commands')
     subparsers.required = True
 
+    atg.data.setup_subparsers(subparsers)
     atg.ucsc.track.setup_subparsers(subparsers)
     atg.quantification.coverage.setup_subparsers(subparsers)
-    atg.data.retrieve.setup_subparsers(subparsers)
-    atg.data.ensembl.setup_subparsers(subparsers)
     atg.data.intervals.setup_subparsers(subparsers)
-    atg.stats.enrich.setup_subparsers(subparsers)
     atg.util.index.setup_subparsers(subparsers)
     atg.util.align.setup_subparsers(subparsers)
+    atg.stats.enrich.setup_subparsers(subparsers)
 
     args = parser.parse_args()
     args.func(args)

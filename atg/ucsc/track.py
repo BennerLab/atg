@@ -289,13 +289,16 @@ def reorganize_hub(namespace):
 
 
 def setup_subparsers(subparsers):
-    make_hub_parser = subparsers.add_parser('make', help='Generate a Hub from YAML file, including conversion of BAM'
+    hub_parser = subparsers.add_parser('hub', help='Generate or edit UCSC hubs')
+    hub_subparser = hub_parser.add_subparsers(title='', dest='', description='')
+
+    make_hub_parser = hub_subparser.add_parser('make', help='Generate a Hub from YAML file, including conversion of BAM'
                                                          'to bigWig.')
     make_hub_parser.add_argument('config', help="YAML configuration file")
     make_hub_parser.set_defaults(func=make_hub)
 
     # Generate a basic YAML file for describing data and output
-    setup_hub_parser = subparsers.add_parser('setup', help="Generate a simple YAML configuration file for "
+    setup_hub_parser = hub_subparser.add_parser('setup', help="Generate a simple YAML configuration file for "
                                                            "Hub grouping. Outputs to stdout.")
     setup_hub_parser.add_argument('file_list', nargs='+', help="BAM files")
     setup_hub_parser.add_argument('-n', '--name', help="Hub name", default="DEFAULT")
@@ -308,8 +311,9 @@ def setup_subparsers(subparsers):
     setup_hub_parser.set_defaults(func=setup_hub)
 
     # New organization of existing bigwig files
-    reorganize_hub_parser = subparsers.add_parser('reorganize', help="Generate a new trackDb.txt file given a YAML "
+    reorganize_hub_parser = hub_subparser.add_parser('reorganize', help="Generate a new trackDb.txt file given a YAML "
                                                                      "configuration. Will not create tracks.")
     reorganize_hub_parser.add_argument('config', help="YAML configuration file")
     reorganize_hub_parser.add_argument('-o', '--output', help="output file", default="trackDb.txt")
     reorganize_hub_parser.set_defaults(func=reorganize_hub)
+

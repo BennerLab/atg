@@ -178,8 +178,7 @@ def retrieve_data(namespace):
 
 
 def setup_subparsers(subparsers):
-    retrieval_parser = subparsers.add_parser('data', help="Retrieve genome sequences and related information")
-    retrieval_parser.add_argument('organism', help="a UCSC genome code, e.g. hg38\n"
-                                                   "in the future, this will likely change to a common name")
+    retrieval_parser = subparsers.add_parser('ensembl', help="Use Ensembl's main site")
+    retrieval_parser.add_argument('organism', help="a species common name, e.g. human or mouse")
     retrieval_parser.add_argument('-o', '--overwrite', action="store_true", help="Overwrite existing files")
     retrieval_parser.set_defaults(func=retrieve_data)

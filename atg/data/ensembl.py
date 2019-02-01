@@ -148,7 +148,7 @@ def retrieve_ensembl_species(namespace):
 
 
 def setup_subparsers(subparsers):
-    retrieval_parser = subparsers.add_parser('species', help="Retrieve genome sequences and related information")
+    retrieval_parser = subparsers.add_parser('species', help="Fetch an organism by genus and species")
     retrieval_parser.add_argument('species_name', nargs="+",
                                   help="one or more genus/species for an organism in Ensembl, e.g. zea_mays")
     retrieval_parser.add_argument('-l', '--list', action="store_true", help="species are provided in a text file given"
