@@ -1,4 +1,9 @@
 name: atg
+channels:
+- bioconda
+- npdeloss
+- conda-forge
+- defaults
 dependencies:
 - python=3
 - pysam
@@ -18,6 +23,7 @@ dependencies:
 - bioconductor-deseq2
 - bioconductor-gviz
 - bioconductor-biomart
+- meirlop
 - pip
 - pip:
     - pronto

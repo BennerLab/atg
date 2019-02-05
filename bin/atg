@@ -24,6 +24,7 @@ if __name__ == '__main__':
     atg.util.index.setup_subparsers(subparsers)
     atg.util.align.setup_subparsers(subparsers)
     atg.stats.enrich.setup_subparsers(subparsers)
+    atg.stats.meirlop.setup_subparsers(subparsers)
 
     args = parser.parse_args()
     args.func(args)
