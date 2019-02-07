@@ -41,7 +41,7 @@ class RetrievalTest(unittest.TestCase):
 
             chromosome_filename = os.path.join(working_directory, "chrom.sizes")
             atg.data.retrieve.fetch_url(UCSC_CHROMOSOME_SIZE_FILE, chromosome_filename)
-            chromosome_df = pandas.read_table(chromosome_filename, names=['chrom', 'size'])
+            chromosome_df = pandas.read_csv(chromosome_filename, names=['chrom', 'size'], sep='\t')
             self.assertEqual(chromosome_df['chrom'][0], 'chr1')
             self.assertEqual(chromosome_df.shape[0], UCSC_CHROMOSOME_ENTRIES)
 
@@ -53,8 +53,8 @@ class ATGDataTrackerTest(unittest.TestCase):
         self.ATGDataTracker = atg.data.retrieve.ATGDataTracker(self.temp_dir.name)
 
     def test_yeast_retrieval(self):
-        self.assertIn('yeast', os.listdir(self.temp_dir.name))
         self.ATGDataTracker.retrieve_data('yeast')
+        self.assertIn('yeast', os.listdir(self.temp_dir.name))
 
         # check that files all exist and have non-zero size
         for genome_file in atg.data.retrieve.GENOME_FILES:
