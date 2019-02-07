@@ -10,6 +10,7 @@ import urllib.error
 import gzip
 import configparser
 import pandas
+import progress.bar
 import atg.config
 import atg.data
 import atg.data.ontology
@@ -58,8 +59,6 @@ def fetch_url(url, path, overwrite=False, verbose=False):
     if not overwrite and os.path.exists(path):
         if verbose:
             print('The file %s already exists, so %s was not downloaded.' % (path, url))
-        else:
-            print('The file %s already exists.' % path)
         return True
 
     # create empty file for blank URLs, e.g. human homologs for human genome data
@@ -203,10 +202,17 @@ class ATGDataTracker:
         current_genome_path = os.path.join(self.data_root, organism, ensembl_genome)
         os.makedirs(current_genome_path, exist_ok=True)
 
+        # set up a progress bar
+        progress_bar = progress.bar.Bar('Downloading', max=len(selected_files))
+        progress_bar.suffix = '%(index)d/%(max)d %(filename)s'
+
         # fetch each file
         for filename, current_url in self.config.items(organism):
             if filename not in selected_files:
                 continue
+
+            progress_bar.filename = filename
+            progress_bar.next()
 
             current_path = os.path.join(current_genome_path, filename)
             if current_url.startswith('<?xml'):
@@ -218,6 +224,10 @@ class ATGDataTracker:
                 print('\nDid not successfully retrieve data for %s.\nFailed to get %s.' %
                       (organism, filename), file=sys.stderr)
                 return False
+
+        progress_bar.filename = ''
+        progress_bar.update()
+        progress_bar.finish()
 
         self.genome_path[organism] = current_genome_path
 
