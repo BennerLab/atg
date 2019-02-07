@@ -90,8 +90,8 @@ def get_tss_bed6(organism_common_name, level="transcript"):
 
 def setup_subparsers(subparsers):
     data_parser = subparsers.add_parser('data', help='Retrieve genomes and annotation')
-    data_subparsers = data_parser.add_subparsers(title='source', dest='source', description='Genomic data source')
+    data_subparsers = data_parser.add_subparsers(title='Retrieve genomes and annotation')
+    data_parser.set_defaults(func=lambda x: data_parser.print_help())
 
     atg.data.retrieve.setup_subparsers(data_subparsers)
     atg.data.ensembl.setup_subparsers(data_subparsers)
-
