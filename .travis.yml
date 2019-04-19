@@ -15,8 +15,8 @@ install:
   - conda config --add channels conda-forge
   - conda info -a
   - conda env create -q --file requirements.yml
-  - conda list
   - source activate atg
+  - conda list
 
 before_script:
   - "export DISPLAY=:99.0"
