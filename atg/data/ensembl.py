@@ -29,7 +29,7 @@ class EnsemblSpecies:
         ensembl_genome_file = os.path.join(self.data_root, 'ensembl_species.txt')
         if not os.path.exists(ensembl_genome_file):
             atg.data.retrieve.fetch_url(ENSEMBL_SPECIES_INFORMATION, ensembl_genome_file)
-        self.ensembl_species_df = pandas.read_table(ensembl_genome_file, index_col=False)
+        self.ensembl_species_df = pandas.read_csv(ensembl_genome_file, index_col=False, sep='\t')
 
     def get_species_information(self, species):
         """

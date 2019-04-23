@@ -15,6 +15,7 @@ import atg.config
 import atg.data
 import atg.data.ontology
 
+ENSEMBL_PERMANENT_SITE = 'Apr2019.archive.ensembl.org'
 DATA_SOURCE_PATH = os.path.join(os.path.dirname(__file__), 'data_sources.ini')
 GENOME_FILES = [
     'chrom.sizes',                      # UCSC chromosome sizes
@@ -42,7 +43,7 @@ def fetch_ensembl(xml_string, output_filename, overwrite=False):
     :return:
     """
     query = urllib.parse.quote(xml_string)
-    url = 'http://www.ensembl.org/biomart/martservice?query=' + query
+    url = f'http://{ENSEMBL_PERMANENT_SITE}/biomart/martservice?query={query}'
     return fetch_url(url, output_filename, overwrite)
 
 
