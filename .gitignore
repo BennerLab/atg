@@ -89,3 +89,8 @@ ENV/
 .ropeproject
 
 ATGConfig.txt
+.idea/atg.iml
+.idea/encodings.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
