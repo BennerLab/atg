@@ -18,10 +18,12 @@ class MyTestCase(unittest.TestCase):
     def test_star_command_construction(self):
         CORRECT_OUTPUT = 'STAR --genomeDir /directory/genomeIndex --runThreadN 16 ' \
                          '--readFilesIn a_1.fastq --outFileNamePrefix output_directory/a. --outSAMtype BAM ' \
-                         'SortedByCoordinate  --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000\n' \
+                         'SortedByCoordinate  --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000 ' \
+                         '--outBAMsortingBinsN 31\n' \
                          'STAR --genomeDir /directory/genomeIndex --runThreadN 16 ' \
                          '--readFilesIn b_1.fastq --outFileNamePrefix output_directory/b. --outSAMtype BAM ' \
-                         'SortedByCoordinate  --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000'
+                         'SortedByCoordinate  --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000 ' \
+                         '--outBAMsortingBinsN 31'
 
         arguments = shlex.split('-t 16 -c /directory/genomeIndex output_directory a_1.fastq b_1.fastq')
 
@@ -38,11 +40,11 @@ class MyTestCase(unittest.TestCase):
         CORRECT_OUTPUT = 'STAR --genomeDir /directory/genomeIndex --runThreadN 16 ' \
                          '--readFilesIn a_1.fastq.gz --outFileNamePrefix output_directory/a. --outSAMtype BAM ' \
                          'SortedByCoordinate  --readFilesCommand gunzip -c --genomeLoad LoadAndKeep ' \
-                         '--limitBAMsortRAM 50000000000\n' \
+                         '--limitBAMsortRAM 50000000000 --outBAMsortingBinsN 31\n' \
                          'STAR --genomeDir /directory/genomeIndex --runThreadN 16 ' \
                          '--readFilesIn b_1.fastq.gz --outFileNamePrefix output_directory/b. --outSAMtype BAM ' \
                          'SortedByCoordinate  --readFilesCommand gunzip -c --genomeLoad LoadAndKeep ' \
-                         '--limitBAMsortRAM 50000000000'
+                         '--limitBAMsortRAM 50000000000 --outBAMsortingBinsN 31'
 
         arguments = shlex.split('-c -t 16 /directory/genomeIndex output_directory a_1.fastq.gz b_1.fastq.gz')
 
