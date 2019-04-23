@@ -1,8 +1,11 @@
 import unittest
+import os
 import sys
 import shlex
 from atg.util import align
 from atg.util.align import Bowtie2Aligner
+
+BOWTIE2_LOG = os.path.join(os.path.dirname(__file__), 'data', 'bowtie2_SE.log')
 
 
 class STARCommandTestCase(unittest.TestCase):
@@ -60,17 +63,12 @@ class STARCommandTestCase(unittest.TestCase):
 
 class Bowtie2CommandTestCase(unittest.TestCase):
     def test_log_parsing(self):
-        log_series = Bowtie2Aligner.parse_log('data/bowtie2_log_SE.txt')
+        log_series = Bowtie2Aligner.parse_log(BOWTIE2_LOG)
         self.assertEqual(log_series['Total reads'], 12494316)
         self.assertEqual(log_series['Unmapped'], 72860)
         self.assertEqual(log_series['Uniquely mapped'], 7693710)
         self.assertEqual(log_series['Multimapped'], 4727746)
         self.assertEqual(log_series[2:5].sum(), log_series['Total reads'])
-
-    def test_output(self):
-        bowtie2_aligner = Bowtie2Aligner()
-        bowtie2_aligner.log_list = ['data/bowtie2_log_SE.txt']
-        bowtie2_aligner.summarize_results()
 
 
 if __name__ == '__main__':
