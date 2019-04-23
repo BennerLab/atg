@@ -193,6 +193,8 @@ class ReadAlignmentBase:
 
 class STARAligner(ReadAlignmentBase):
     name = 'star'
+    MAX_SORTING_BINS = 50
+    MAX_OPEN_FILES = 500
 
     def __init__(self):
         """
@@ -233,7 +235,13 @@ class STARAligner(ReadAlignmentBase):
                 additional_options += ' --readFilesCommand bunzip2 -c'
 
             if not kwargs['low_resource']:
-                additional_options += ' --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000'
+                sorting_bins = min(STARAligner.MAX_SORTING_BINS, STARAligner.MAX_OPEN_FILES//kwargs['threads'])
+                # STAR will create temp files ~ threads*bins, and the system will limit this to approximately 1,000.
+                # default is 50, which creates a problem when using 48 threads
+
+                additional_options += ' --genomeLoad LoadAndKeep'
+                additional_options += ' --limitBAMsortRAM 50000000000'
+                additional_options += f' --outBAMsortingBinsN {sorting_bins}'
             if kwargs['keep_unmapped']:
                 additional_options += ' --outReadsUnmapped Fastx'
             if kwargs['quantify']:
