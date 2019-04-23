@@ -2,9 +2,10 @@ import unittest
 import sys
 import shlex
 from atg.util import align
+from atg.util.align import Bowtie2Aligner
 
 
-class MyTestCase(unittest.TestCase):
+class STARCommandTestCase(unittest.TestCase):
     def test_star_arg_parsing(self):
         arguments = shlex.split(' -k -t 16 /directory/genomeIndex output_directory a.fastq b.fastq')
         parser = align.STARAligner.get_argument_parser()
@@ -55,6 +56,21 @@ class MyTestCase(unittest.TestCase):
 
         aligner_output = sys.stdout.getvalue().strip()
         self.assertEqual(aligner_output, CORRECT_OUTPUT)
+
+
+class Bowtie2CommandTestCase(unittest.TestCase):
+    def test_log_parsing(self):
+        log_series = Bowtie2Aligner.parse_log('data/bowtie2_log_SE.txt')
+        self.assertEqual(log_series['Total reads'], 12494316)
+        self.assertEqual(log_series['Unmapped'], 72860)
+        self.assertEqual(log_series['Uniquely mapped'], 7693710)
+        self.assertEqual(log_series['Multimapped'], 4727746)
+        self.assertEqual(log_series[2:5].sum(), log_series['Total reads'])
+
+    def test_output(self):
+        bowtie2_aligner = Bowtie2Aligner()
+        bowtie2_aligner.log_list = ['data/bowtie2_log_SE.txt']
+        bowtie2_aligner.summarize_results()
 
 
 if __name__ == '__main__':

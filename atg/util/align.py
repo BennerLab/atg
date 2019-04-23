@@ -441,33 +441,14 @@ class Bowtie2Aligner(SalzbergAligner):
 
         # output simplified results too
         # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+        result_df['Unique %'] = result_df['Uniquely mapped']/result_df['Total reads']
+        result_df['Multimapped %'] = result_df['Multimapped'] / result_df['Total reads']
+        result_df['Unmapped %'] = result_df['Unmapped'] / result_df['Total reads']
+        result_df.drop(columns=['Multimapped', 'Unmapped'], inplace=True)
 
-        # paired/single end results have different column names
-        if result_df.shape[1] > HISAT2Aligner.SINGLE_END_RESULT_COLUMNS:
-            simplified_df = (result_df.loc[:, ['Sample', 'Total pairs', 'Aligned concordantly 1 time',
-                                               'Aligned concordantly >1 times',
-                                               'Aligned concordantly or discordantly 0 time']]
-                                      .rename(index=str,
-                                              columns={'Total pairs': 'Total reads',
-                                                       'Aligned concordantly 1 time': 'Uniquely mapped',
-                                                       'Aligned concordantly >1 times': 'Multimapped',
-                                                       'Aligned concordantly or discordantly 0 time': 'Unmapped'}))
-        else:
-            simplified_df = (result_df.loc[:, ['Sample', 'Total reads', 'Aligned 1 time', 'Aligned >1 times',
-                                               'Aligned 0 time']]
-                                      .rename(index=str,
-                                              columns={'Aligned 1 time': 'Uniquely mapped',
-                                                       'Aligned >1 times': 'Multimapped',
-                                                       'Aligned 0 time': 'Unmapped'}))
+        result_df.to_csv('bowtie2_alignment_summary.txt', sep='\t', index=False)
 
-        simplified_df['Unique %'] = simplified_df['Uniquely mapped']/simplified_df['Total reads']
-        simplified_df['Multimapped %'] = simplified_df['Multimapped'] / simplified_df['Total reads']
-        simplified_df['Unmapped %'] = simplified_df['Unmapped'] / simplified_df['Total reads']
-        simplified_df.drop(columns=['Multimapped', 'Unmapped'], inplace=True)
-
-        simplified_df.to_csv('bowtie2_alignment_summary.txt', sep='\t', index=False)
-
-        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+        print(result_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
                                                                'Uniquely mapped': '{:,}'.format,
                                                                'Unique %': '{:.1%}'.format,
                                                                'Multimapped %': '{:.1%}'.format,
@@ -479,18 +460,17 @@ class Bowtie2Aligner(SalzbergAligner):
          parse a Bowtie2 log, returning a pandas.Series
          :return: a Series
          """
+        log_entries = dict()
+        log_entries['Sample'] = os.path.split(filename)[-1].replace('.log', '')
 
-        log_entries = ['Sample']
-        log_values = [os.path.split(filename)[-1].replace('.log', '')]
+        with open(filename) as bowtie2_log:
+            log_entries['Total reads'] = int(bowtie2_log.readline().strip().split()[0])
+            bowtie2_log.readline()
+            log_entries['Unmapped'] = int(bowtie2_log.readline().strip().split()[0])
+            log_entries['Uniquely mapped'] = int(bowtie2_log.readline().strip().split()[0])
+            log_entries['Multimapped'] = int(bowtie2_log.readline().strip().split()[0])
 
-        log_df = pandas.read_csv(filename, sep=":", header=None, names=['entry', 'value'], skipinitialspace=True,
-                                 skiprows=1, skipfooter=1, engine='python',
-                                 converters={'entry': str.strip, 'value': lambda x: int(x.split(' ')[0])})
-
-        log_entries += log_df.entry.tolist()
-        log_values += log_df.value.tolist()
-
-        return pandas.Series(log_values, log_entries)
+        return pandas.Series(log_entries)
 
 
 class HISAT2Aligner(SalzbergAligner):
