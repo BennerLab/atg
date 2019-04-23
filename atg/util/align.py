@@ -6,6 +6,8 @@ import pandas
 import string
 import progress.bar
 
+# ENHANCEMENT: use functionality from MultiQC for parsing. MultiQC is not currently written to allow convenient access.
+
 DEFAULT_THREADS = max(1, subprocess.os.cpu_count() // 2)
 
 
@@ -307,22 +309,11 @@ class STARAligner(ReadAlignmentBase):
         return pandas.Series(log_values, log_entries)
 
 
-class HISAT2Aligner(ReadAlignmentBase):
-    name = 'hisat2'
-    SINGLE_END_RESULT_COLUMNS = 5
-
-    def __init__(self):
-        super().__init__()
-        self.command_template = string.Template("hisat2 $extra --new-summary -x $index -p $threads $processed_input")
-
-    @classmethod
-    def get_argument_parser(cls, aligner_argument_parser=None):
-        aligner_argument_parser = super(HISAT2Aligner, cls).get_argument_parser(aligner_argument_parser)
-        aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
-                                                                                "unsorted SAM output")
-        aligner_argument_parser.add_argument('--dta', action='store_true', help="add information for downstream"
-                                                                                "transcriptome assembly")
-        return aligner_argument_parser
+class SalzbergAligner(ReadAlignmentBase):
+    """
+    Base class for aligners from the Salzberg lab, which have similar options and do not natively output sorted BAM
+    files. (Bowtie2 and HISAT2)
+    """
 
     def get_command_list(self, read_files_dict, **kwargs):
         extra_options = ' '.join(kwargs['extra'])
@@ -415,6 +406,105 @@ class HISAT2Aligner(ReadAlignmentBase):
         print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
 
         return True
+
+
+class Bowtie2Aligner(SalzbergAligner):
+    name = 'bowtie2'
+
+    def __init__(self):
+        super().__init__()
+        self.command_template = string.Template("bowtie2 $extra --new-summary -x $index -p $threads $processed_input")
+
+    @classmethod
+    def get_argument_parser(cls, aligner_argument_parser=None):
+        aligner_argument_parser = super(Bowtie2Aligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
+                                                                                "unsorted SAM output")
+
+        return aligner_argument_parser
+
+    def summarize_results(self):
+        if len(self.log_list) == 0:
+            return
+
+        summary_list = []
+        for log_file in self.log_list:
+            summary_list.append(self.parse_log(log_file))
+
+        # output a full result file containing all values from original Log.final.out
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('hisat2_alignment_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+
+        # paired/single end results have different column names
+        if result_df.shape[1] > HISAT2Aligner.SINGLE_END_RESULT_COLUMNS:
+            simplified_df = (result_df.loc[:, ['Sample', 'Total pairs', 'Aligned concordantly 1 time',
+                                               'Aligned concordantly >1 times',
+                                               'Aligned concordantly or discordantly 0 time']]
+                                      .rename(index=str,
+                                              columns={'Total pairs': 'Total reads',
+                                                       'Aligned concordantly 1 time': 'Uniquely mapped',
+                                                       'Aligned concordantly >1 times': 'Multimapped',
+                                                       'Aligned concordantly or discordantly 0 time': 'Unmapped'}))
+        else:
+            simplified_df = (result_df.loc[:, ['Sample', 'Total reads', 'Aligned 1 time', 'Aligned >1 times',
+                                               'Aligned 0 time']]
+                                      .rename(index=str,
+                                              columns={'Aligned 1 time': 'Uniquely mapped',
+                                                       'Aligned >1 times': 'Multimapped',
+                                                       'Aligned 0 time': 'Unmapped'}))
+
+        simplified_df['Unique %'] = simplified_df['Uniquely mapped']/simplified_df['Total reads']
+        simplified_df['Multimapped %'] = simplified_df['Multimapped'] / simplified_df['Total reads']
+        simplified_df['Unmapped %'] = simplified_df['Unmapped'] / simplified_df['Total reads']
+        simplified_df.drop(columns=['Multimapped', 'Unmapped'], inplace=True)
+
+        simplified_df.to_csv('hisat2_alignment_summary.txt', sep='\t', index=False)
+
+        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Uniquely mapped': '{:,}'.format,
+                                                               'Unique %': '{:.1%}'.format,
+                                                               'Multimapped %': '{:.1%}'.format,
+                                                               'Unmapped %': '{:.1%}'.format}))
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+         parse a HISAT2 log, returning a pandas.Series
+         :return: a Series
+         """
+
+        log_entries = ['Sample']
+        log_values = [os.path.split(filename)[-1].replace('.log', '')]
+
+        log_df = pandas.read_csv(filename, sep=":", header=None, names=['entry', 'value'], skipinitialspace=True,
+                                 skiprows=1, skipfooter=1, engine='python',
+                                 converters={'entry': str.strip, 'value': lambda x: int(x.split(' ')[0])})
+
+        log_entries += log_df.entry.tolist()
+        log_values += log_df.value.tolist()
+
+        return pandas.Series(log_values, log_entries)
+
+
+class HISAT2Aligner(SalzbergAligner):
+    name = 'hisat2'
+    SINGLE_END_RESULT_COLUMNS = 5
+
+    def __init__(self):
+        super().__init__()
+        self.command_template = string.Template("hisat2 $extra --new-summary -x $index -p $threads $processed_input")
+
+    @classmethod
+    def get_argument_parser(cls, aligner_argument_parser=None):
+        aligner_argument_parser = super(HISAT2Aligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
+                                                                                "unsorted SAM output")
+        aligner_argument_parser.add_argument('--dta', action='store_true', help="add information for downstream"
+                                                                                "transcriptome assembly")
+        return aligner_argument_parser
 
     def summarize_results(self):
         if len(self.log_list) == 0:
