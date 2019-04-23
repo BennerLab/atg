@@ -323,6 +323,14 @@ class SalzbergAligner(ReadAlignmentBase):
     files. (Bowtie2 and HISAT2)
     """
 
+    @classmethod
+    def get_argument_parser(cls, aligner_argument_parser=None):
+        aligner_argument_parser = super(SalzbergAligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
+                                                                                "unsorted SAM output")
+
+        return aligner_argument_parser
+
     def get_command_list(self, read_files_dict, **kwargs):
         extra_options = ' '.join(kwargs['extra'])
 
@@ -339,11 +347,7 @@ class SalzbergAligner(ReadAlignmentBase):
             else:
                 raise ReadFileMismatch('Improperly formatted read file input:\n%s\n' % read_files_dict[sample_name])
 
-            additional_options = ''
-            if kwargs['dta']:
-                additional_options += ' --dta'
-
-            additional_options += ' -S %s.sam' % output_file
+            additional_options = ' -S %s.sam' % output_file
 
             command_list.append(self.command_template.safe_substitute(kwargs, processed_input=processed_input,
                                                                       output_basename=output_file, extra=extra_options)
@@ -421,15 +425,7 @@ class Bowtie2Aligner(SalzbergAligner):
 
     def __init__(self):
         super().__init__()
-        self.command_template = string.Template("bowtie2 $extra --new-summary -x $index -p $threads $processed_input")
-
-    @classmethod
-    def get_argument_parser(cls, aligner_argument_parser=None):
-        aligner_argument_parser = super(Bowtie2Aligner, cls).get_argument_parser(aligner_argument_parser)
-        aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
-                                                                                "unsorted SAM output")
-
-        return aligner_argument_parser
+        self.command_template = string.Template("bowtie2 $extra -x $index -p $threads $processed_input")
 
     def summarize_results(self):
         if len(self.log_list) == 0:
@@ -441,7 +437,7 @@ class Bowtie2Aligner(SalzbergAligner):
 
         # output a full result file containing all values from original Log.final.out
         result_df = pandas.DataFrame(summary_list)
-        result_df.to_csv('hisat2_alignment_complete.txt', sep='\t', index=False)
+        result_df.to_csv('bowtie2_alignment_complete.txt', sep='\t', index=False)
 
         # output simplified results too
         # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
@@ -469,7 +465,7 @@ class Bowtie2Aligner(SalzbergAligner):
         simplified_df['Unmapped %'] = simplified_df['Unmapped'] / simplified_df['Total reads']
         simplified_df.drop(columns=['Multimapped', 'Unmapped'], inplace=True)
 
-        simplified_df.to_csv('hisat2_alignment_summary.txt', sep='\t', index=False)
+        simplified_df.to_csv('bowtie2_alignment_summary.txt', sep='\t', index=False)
 
         print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
                                                                'Uniquely mapped': '{:,}'.format,
@@ -480,7 +476,7 @@ class Bowtie2Aligner(SalzbergAligner):
     @classmethod
     def parse_log(cls, filename):
         """
-         parse a HISAT2 log, returning a pandas.Series
+         parse a Bowtie2 log, returning a pandas.Series
          :return: a Series
          """
 
@@ -508,8 +504,6 @@ class HISAT2Aligner(SalzbergAligner):
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
         aligner_argument_parser = super(HISAT2Aligner, cls).get_argument_parser(aligner_argument_parser)
-        aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
-                                                                                "unsorted SAM output")
         aligner_argument_parser.add_argument('--dta', action='store_true', help="add information for downstream"
                                                                                 "transcriptome assembly")
         return aligner_argument_parser
@@ -592,7 +586,7 @@ def setup_subparsers(subparsers):
     aligner_subparser = aligner_parser.add_subparsers(title="aligner", dest="aligner",
                                                       description="available alignment programs")
 
-    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner]:
+    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner, Bowtie2Aligner]:
         current_subparser = aligner_subparser.add_parser(aligner.name)
         aligner.get_argument_parser(current_subparser)
 
