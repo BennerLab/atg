@@ -4,19 +4,24 @@
       <w>autoscale</w>
       <w>benjamini</w>
       <w>biomart</w>
+      <w>bowtie</w>
       <w>bunzip</w>
       <w>concordantly</w>
       <w>deduplicated</w>
       <w>ensemblgenomes</w>
       <w>entrez</w>
       <w>fasta</w>
+      <w>filenames</w>
       <w>filetype</w>
       <w>gunzip</w>
       <w>hisat</w>
       <w>hochberg</w>
+      <w>kallisto</w>
       <w>multilist</w>
       <w>multimapped</w>
+      <w>pseudoaligned</w>
       <w>pvalue</w>
+      <w>quant</w>
       <w>rnaseq</w>
       <w>samtools</w>
       <w>subparser</w>

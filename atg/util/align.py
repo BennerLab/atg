@@ -6,6 +6,9 @@ import pandas
 import string
 import progress.bar
 
+# ENHANCEMENT: use functionality from MultiQC for parsing. MultiQC is not currently written to allow convenient access.
+# FEATURE: add bwa mem aligner
+
 DEFAULT_THREADS = max(1, subprocess.os.cpu_count() // 2)
 
 
@@ -167,11 +170,16 @@ class ReadAlignmentBase:
                 print(command)
 
         else:
+            # create output directory if it doesn't already exist; ignore for this base class
+            if self.name != 'test':
+                os.makedirs(kwargs['output'], exist_ok=True)
+
             progress_bar = progress.bar.Bar('Processed %(index)d/%(max)d',
                                             suffix='Remaining: %(eta_td)s', max=len(command_list))
             progress_bar.start()
             for command in command_list:
-                subprocess.run(args=shlex.split(command), env=os.environ.copy(), stdout=subprocess.DEVNULL)
+                subprocess.run(args=shlex.split(command), env=os.environ.copy(), stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
                 progress_bar.next()
             progress_bar.finish()
             print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
@@ -191,6 +199,8 @@ class ReadAlignmentBase:
 
 class STARAligner(ReadAlignmentBase):
     name = 'star'
+    MAX_SORTING_BINS = 50
+    MAX_OPEN_FILES = 500
 
     def __init__(self):
         """
@@ -231,7 +241,13 @@ class STARAligner(ReadAlignmentBase):
                 additional_options += ' --readFilesCommand bunzip2 -c'
 
             if not kwargs['low_resource']:
-                additional_options += ' --genomeLoad LoadAndKeep --limitBAMsortRAM 50000000000'
+                sorting_bins = min(STARAligner.MAX_SORTING_BINS, STARAligner.MAX_OPEN_FILES//kwargs['threads'])
+                # STAR will create temp files ~ threads*bins, and the system will limit this to approximately 1,000.
+                # default is 50, which creates a problem when using 48 threads
+
+                additional_options += ' --genomeLoad LoadAndKeep'
+                additional_options += ' --limitBAMsortRAM 50000000000'
+                additional_options += f' --outBAMsortingBinsN {sorting_bins}'
             if kwargs['keep_unmapped']:
                 additional_options += ' --outReadsUnmapped Fastx'
             if kwargs['quantify']:
@@ -307,21 +323,18 @@ class STARAligner(ReadAlignmentBase):
         return pandas.Series(log_values, log_entries)
 
 
-class HISAT2Aligner(ReadAlignmentBase):
-    name = 'hisat2'
-    SINGLE_END_RESULT_COLUMNS = 5
-
-    def __init__(self):
-        super().__init__()
-        self.command_template = string.Template("hisat2 $extra --new-summary -x $index -p $threads $processed_input")
+class SalzbergAligner(ReadAlignmentBase):
+    """
+    Base class for aligners from the Salzberg lab, which have similar options and do not natively output sorted BAM
+    files. (Bowtie2 and HISAT2)
+    """
 
     @classmethod
     def get_argument_parser(cls, aligner_argument_parser=None):
-        aligner_argument_parser = super(HISAT2Aligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser = super(SalzbergAligner, cls).get_argument_parser(aligner_argument_parser)
         aligner_argument_parser.add_argument('--bam', action='store_true', help="write sorted BAM rather than "
                                                                                 "unsorted SAM output")
-        aligner_argument_parser.add_argument('--dta', action='store_true', help="add information for downstream"
-                                                                                "transcriptome assembly")
+
         return aligner_argument_parser
 
     def get_command_list(self, read_files_dict, **kwargs):
@@ -340,11 +353,7 @@ class HISAT2Aligner(ReadAlignmentBase):
             else:
                 raise ReadFileMismatch('Improperly formatted read file input:\n%s\n' % read_files_dict[sample_name])
 
-            additional_options = ''
-            if kwargs['dta']:
-                additional_options += ' --dta'
-
-            additional_options += ' -S %s.sam' % output_file
+            additional_options = ' -S %s.sam' % output_file
 
             command_list.append(self.command_template.safe_substitute(kwargs, processed_input=processed_input,
                                                                       output_basename=output_file, extra=extra_options)
@@ -365,6 +374,10 @@ class HISAT2Aligner(ReadAlignmentBase):
         command_list = self.get_command_list(read_files_dict, **kwargs)
         progress_bar = progress.bar.Bar('Processed %(index)d/%(max)d', suffix='Remaining: %(eta_td)s',
                                         max=len(command_list))
+
+        # create output directory if it doesn't already exist; ignore for this base class
+        if not kwargs['check'] and self.name != 'test':
+            os.makedirs(kwargs['output'], exist_ok=True)
 
         if kwargs['bam']:
             samtools_bam_command = shlex.split('samtools view -u')
@@ -411,10 +424,80 @@ class HISAT2Aligner(ReadAlignmentBase):
                     self.log_list.append(log_filename)
                     progress_bar.next()
 
-        progress_bar.finish()
-        print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
+        if not kwargs['check']:
+            progress_bar.finish()
+            print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
 
         return True
+
+
+class Bowtie2Aligner(SalzbergAligner):
+    name = 'bowtie2'
+
+    def __init__(self):
+        super().__init__()
+        self.command_template = string.Template("bowtie2 $extra -x $index -p $threads $processed_input")
+
+    def summarize_results(self):
+        if len(self.log_list) == 0:
+            return
+
+        summary_list = []
+        for log_file in self.log_list:
+            summary_list.append(self.parse_log(log_file))
+
+        # output a full result file containing all values from original Log.final.out
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('bowtie2_alignment_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+        result_df['Unique %'] = result_df['Uniquely mapped']/result_df['Total reads']
+        result_df['Multimapped %'] = result_df['Multimapped'] / result_df['Total reads']
+        result_df['Unmapped %'] = result_df['Unmapped'] / result_df['Total reads']
+        result_df.drop(columns=['Multimapped', 'Unmapped'], inplace=True)
+
+        result_df.to_csv('bowtie2_alignment_summary.txt', sep='\t', index=False)
+
+        print(result_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                           'Uniquely mapped': '{:,}'.format,
+                                                           'Unique %': '{:.1%}'.format,
+                                                           'Multimapped %': '{:.1%}'.format,
+                                                           'Unmapped %': '{:.1%}'.format}))
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+         parse a Bowtie2 log, returning a pandas.Series
+         :return: a Series
+         """
+        log_entries = dict()
+        log_entries['Sample'] = os.path.split(filename)[-1].replace('.log', '')
+
+        with open(filename) as bowtie2_log:
+            log_entries['Total reads'] = int(bowtie2_log.readline().strip().split()[0])
+            bowtie2_log.readline()
+            log_entries['Unmapped'] = int(bowtie2_log.readline().strip().split()[0])
+            log_entries['Uniquely mapped'] = int(bowtie2_log.readline().strip().split()[0])
+            log_entries['Multimapped'] = int(bowtie2_log.readline().strip().split()[0])
+
+        return pandas.Series(log_entries)
+
+
+class HISAT2Aligner(SalzbergAligner):
+    name = 'hisat2'
+    SINGLE_END_RESULT_COLUMNS = 5
+
+    def __init__(self):
+        super().__init__()
+        self.command_template = string.Template("hisat2 $extra --new-summary -x $index -p $threads $processed_input")
+
+    @classmethod
+    def get_argument_parser(cls, aligner_argument_parser=None):
+        aligner_argument_parser = super(HISAT2Aligner, cls).get_argument_parser(aligner_argument_parser)
+        aligner_argument_parser.add_argument('--dta', action='store_true', help="add information for downstream"
+                                                                                "transcriptome assembly")
+        return aligner_argument_parser
 
     def summarize_results(self):
         if len(self.log_list) == 0:
@@ -482,6 +565,116 @@ class HISAT2Aligner(ReadAlignmentBase):
         return pandas.Series(log_values, log_entries)
 
 
+class KallistoAligner(ReadAlignmentBase):
+    name = 'kallisto'
+
+    def __init__(self):
+        super().__init__()
+        self.command_template = string.Template("kallisto quant -i $index --bias --rf-stranded -t $threads "
+                                                "-o $basename $read_files $extra")
+        self.output_list = []
+
+    def get_command_list(self, read_files_dict, **kwargs):
+        """
+        kallisto doesn't use comma-separated list of files
+        kallisto outputs to directories,
+        1. change sample output to
+        2.
+
+        :param read_files_dict:
+        :param kwargs:
+        :return:
+        """
+        command_list = []
+
+        for sample_name in sorted(read_files_dict.keys()):
+            additional_options = ''
+
+            input_string = read_files_dict[sample_name]
+            # paired-end if a space is present
+            if ' ' in input_string:
+                input_string = KallistoAligner.arrange_read_filenames(input_string)
+
+            # single-end analysis requires fragment length and std. dev. to be specified
+            else:
+                input_string = input_string.replace(',', ' ')
+                additional_options += ' --single -l 200 -s 30'
+
+            output_dir = os.path.join(kwargs['output'], sample_name)
+            self.output_list.append(output_dir)
+            extra_options = ' '.join(kwargs['extra'])
+
+            command_list.append(self.command_template.safe_substitute(kwargs, read_files=input_string,
+                                                                      basename=output_dir, extra=extra_options) +
+                                additional_options)
+        return command_list
+
+    def align_reads(self, **kwargs):
+        """
+        after running inherited method, build up a list of log files
+        :param kwargs:
+        :return:
+        """
+        super().align_reads(**kwargs)
+        if not kwargs['check']:
+            self.log_list = [os.path.join(output_dir, 'run_info.json') for output_dir in self.output_list]
+
+    def summarize_results(self):
+        if len(self.log_list) == 0:
+            return
+
+        summary_list = []
+        for log_file in self.log_list:
+            sample_name = os.path.split(os.path.dirname(log_file))[1]
+            summary_series = self.parse_log(log_file)
+            summary_series['Sample'] = sample_name
+            summary_list.append(summary_series)
+
+        # output a full result file containing all values from original log
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('kallisto_quant_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+        simplified_df = result_df.loc[:, ['Sample', 'n_processed', 'n_pseudoaligned',
+                                          'n_unique', 'p_pseudoaligned', 'p_unique']]
+        simplified_df.rename(index=str, columns={'n_processed': 'Total reads',
+                                                 'n_unique': 'Uniquely aligned',
+                                                 'p_unique': 'Unique %',
+                                                 'n_pseudoaligned': 'Pseudoaligned',
+                                                 'p_pseudoaligned': 'Pseudoaligned %'},
+                             inplace=True)
+        simplified_df['Unaligned %'] = 100 - simplified_df['Pseudoaligned %']
+        simplified_df.to_csv('star_alignment_summary.txt', sep='\t', index=False)
+
+        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Pseudoaligned': '{:,}'.format,
+                                                               'Uniquely aligned': '{:,}'.format,
+                                                               'Unique %': '{:.1f}'.format,
+                                                               'Pseudoaligned %': '{:.1f}'.format,
+                                                               'Unaligned %': '{:.1f}'.format}))
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+        extract useful values from the run_info.json file created by all kallisto quant runs.
+        :param filename:
+        :return:
+        """
+        return pandas.read_json(filename, typ='Series')
+
+    @classmethod
+    def arrange_read_filenames(cls, filename_string):
+        """
+        unlike other aligners, kallisto's input is an interleaved list of filenames
+        :param filename_string: e.g., '1_1_R1.fastq,1_R1.fastq 1_1_R2.fastq,1_R2.fastq'
+        :return: e.g. '1_1_R1.fastq  1_1_R2.fastq 1_R1.fastq 1_R2.fastq'
+        """
+        r1, r2 = filename_string.split(' ')
+        interleaved_string = ' '.join([' '.join(x) for x in zip(r1.split(','), r2.split(','))])
+        return interleaved_string
+
+
 def run_aligner(namespace):
     aligner = namespace.Aligner()
     aligner.align_reads(**vars(namespace))
@@ -494,7 +687,7 @@ def setup_subparsers(subparsers):
     aligner_subparser = aligner_parser.add_subparsers(title="aligner", dest="aligner",
                                                       description="available alignment programs")
 
-    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner]:
+    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner, Bowtie2Aligner, KallistoAligner]:
         current_subparser = aligner_subparser.add_parser(aligner.name)
         aligner.get_argument_parser(current_subparser)
 
