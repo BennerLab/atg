@@ -1,0 +1,13 @@
+{
+	"n_targets": 128717,
+	"n_bootstraps": 0,
+	"n_processed": 44891704,
+	"n_pseudoaligned": 36521130,
+	"n_unique": 16090035,
+	"p_pseudoaligned": 81.4,
+	"p_unique": 35.8,
+	"kallisto_version": "0.44.0",
+	"index_version": 10,
+	"start_time": "Thu Apr 11 15:01:35 2019",
+	"call": "kallisto quant -i /home/mwchang/gpfs/ATGData/mouse/GRCm38/transcripts.idx --bias -t 8 --rf-stranded -o 1ia86N ../reads/1ia86N_S42_L001_R1_001.fastq.gz ../reads/1ia86N_S42_L001_R2_001.fastq.gz"
+}
