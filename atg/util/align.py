@@ -376,7 +376,7 @@ class SalzbergAligner(ReadAlignmentBase):
 
         # create output directory if it doesn't already exist; ignore for this base class
         if not kwargs['check'] and self.name != 'test':
-            os.makedirs(kwargs['output'], exist_ok=TRUE)
+            os.makedirs(kwargs['output'], exist_ok=True)
 
         if kwargs['bam']:
             samtools_bam_command = shlex.split('samtools view -u')
