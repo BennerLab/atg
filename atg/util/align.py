@@ -405,8 +405,9 @@ class SalzbergAligner(ReadAlignmentBase):
                     with open(log_filename, 'w') as log:
                         aligner = subprocess.Popen(alignment_command_list, stdout=subprocess.PIPE, stderr=log)
                         samtools_bam = subprocess.Popen(samtools_bam_command, stdin=aligner.stdout,
-                                                        stdout=subprocess.PIPE)
-                        samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout)
+                                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                        samtools_sort = subprocess.Popen(samtools_sort_command, stdin=samtools_bam.stdout,
+                                                         stderr=subprocess.DEVNULL)
                         samtools_sort.communicate()
                     self.log_list.append(log_filename)
                     progress_bar.next()
