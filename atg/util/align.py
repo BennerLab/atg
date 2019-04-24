@@ -171,7 +171,7 @@ class ReadAlignmentBase:
         else:
             # create output directory if it doesn't already exist; ignore for this base class
             if self.name != 'test':
-                os.makedirs(kwargs['output'], exist_ok=TRUE)
+                os.makedirs(kwargs['output'], exist_ok=True)
 
             progress_bar = progress.bar.Bar('Processed %(index)d/%(max)d',
                                             suffix='Remaining: %(eta_td)s', max=len(command_list))
