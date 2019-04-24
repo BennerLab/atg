@@ -554,6 +554,73 @@ class HISAT2Aligner(SalzbergAligner):
         return pandas.Series(log_values, log_entries)
 
 
+class KallistoAligner(ReadAlignmentBase):
+    name = 'kallisto'
+
+    def __init__(self):
+        super().__init__()
+        self.command_template = string.Template("kallisto quant -i $index --bias --rf-stranded -t $threads "
+                                                "-o $basename $read_files $extra")
+
+    def get_command_list(self, read_files_dict, **kwargs):
+        """
+        kallisto doesn't use comma-separated list of files
+        kallisto outputs to directories,
+        1. change sample output to
+        2.
+
+        :param read_files_dict:
+        :param kwargs:
+        :return:
+        """
+        command_list = []
+
+        for sample_name in sorted(read_files_dict.keys()):
+            additional_options = ''
+
+            input_string = read_files_dict[sample_name]
+            # paired-end if a space is present
+            if ' ' in input_string:
+                input_string = KallistoAligner.arrange_read_filenames(input_string)
+
+            # single-end analysis requires fragment length and std. dev. to be specified
+            else:
+                input_string = input_string.replace(',', ' ')
+                additional_options += ' --single -l 200 -s 30'
+
+            output_file = os.path.join(kwargs['output'], sample_name)
+            extra_options = ' '.join(kwargs['extra'])
+
+            command_list.append(self.command_template.safe_substitute(kwargs, read_files=input_string,
+                                                                      basename=output_file, extra=extra_options) +
+                                additional_options)
+        return command_list
+
+    def summarize_results(self):
+        pass
+
+    @classmethod
+    def parse_log(cls, filename):
+        """
+        extract useful values from the run_info.json file created by all kallisto quant runs.
+        :param filename:
+        :return:
+        """
+        pass
+
+    @classmethod
+    def arrange_read_filenames(cls, filename_string):
+        """
+        unlike other aligners, kallisto's input is an interleaved list of filenames
+        :param filename_string: e.g., '1_1_R1.fastq,1_R1.fastq 1_1_R2.fastq,1_R2.fastq'
+        :return: e.g. '1_1_R1.fastq  1_1_R2.fastq 1_R1.fastq 1_R2.fastq'
+        """
+        r1, r2 = filename_string.split(' ')
+        interleaved_string = ' '.join([' '.join(x) for x in zip(r1.split(','), r2.split(','))])
+        return interleaved_string
+
+
+
 def run_aligner(namespace):
     aligner = namespace.Aligner()
     aligner.align_reads(**vars(namespace))
@@ -566,7 +633,7 @@ def setup_subparsers(subparsers):
     aligner_subparser = aligner_parser.add_subparsers(title="aligner", dest="aligner",
                                                       description="available alignment programs")
 
-    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner, Bowtie2Aligner]:
+    for aligner in [ReadAlignmentBase, STARAligner, HISAT2Aligner, Bowtie2Aligner, KallistoAligner]:
         current_subparser = aligner_subparser.add_parser(aligner.name)
         aligner.get_argument_parser(current_subparser)
 
