@@ -169,6 +169,10 @@ class ReadAlignmentBase:
                 print(command)
 
         else:
+            # create output directory if it doesn't already exist; ignore for this base class
+            if self.name != 'test':
+                os.makedirs(kwargs['output'], exist_ok=TRUE)
+
             progress_bar = progress.bar.Bar('Processed %(index)d/%(max)d',
                                             suffix='Remaining: %(eta_td)s', max=len(command_list))
             progress_bar.start()
@@ -369,6 +373,10 @@ class SalzbergAligner(ReadAlignmentBase):
         command_list = self.get_command_list(read_files_dict, **kwargs)
         progress_bar = progress.bar.Bar('Processed %(index)d/%(max)d', suffix='Remaining: %(eta_td)s',
                                         max=len(command_list))
+
+        # create output directory if it doesn't already exist; ignore for this base class
+        if not kwargs['check'] and self.name != 'test':
+            os.makedirs(kwargs['output'], exist_ok=TRUE)
 
         if kwargs['bam']:
             samtools_bam_command = shlex.split('samtools view -u')
