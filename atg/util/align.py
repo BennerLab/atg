@@ -449,10 +449,10 @@ class Bowtie2Aligner(SalzbergAligner):
         result_df.to_csv('bowtie2_alignment_summary.txt', sep='\t', index=False)
 
         print(result_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
-                                                               'Uniquely mapped': '{:,}'.format,
-                                                               'Unique %': '{:.1%}'.format,
-                                                               'Multimapped %': '{:.1%}'.format,
-                                                               'Unmapped %': '{:.1%}'.format}))
+                                                           'Uniquely mapped': '{:,}'.format,
+                                                           'Unique %': '{:.1%}'.format,
+                                                           'Multimapped %': '{:.1%}'.format,
+                                                           'Unmapped %': '{:.1%}'.format}))
 
     @classmethod
     def parse_log(cls, filename):
@@ -561,6 +561,7 @@ class KallistoAligner(ReadAlignmentBase):
         super().__init__()
         self.command_template = string.Template("kallisto quant -i $index --bias --rf-stranded -t $threads "
                                                 "-o $basename $read_files $extra")
+        self.output_list = []
 
     def get_command_list(self, read_files_dict, **kwargs):
         """
@@ -588,16 +589,58 @@ class KallistoAligner(ReadAlignmentBase):
                 input_string = input_string.replace(',', ' ')
                 additional_options += ' --single -l 200 -s 30'
 
-            output_file = os.path.join(kwargs['output'], sample_name)
+            output_dir = os.path.join(kwargs['output'], sample_name)
+            self.output_list.append(output_dir)
             extra_options = ' '.join(kwargs['extra'])
 
             command_list.append(self.command_template.safe_substitute(kwargs, read_files=input_string,
-                                                                      basename=output_file, extra=extra_options) +
+                                                                      basename=output_dir, extra=extra_options) +
                                 additional_options)
         return command_list
 
+    def align_reads(self, **kwargs):
+        """
+        after running inherited method, build up a list of log files
+        :param kwargs:
+        :return:
+        """
+        super().align_reads(**kwargs)
+        if not kwargs['check']:
+            self.log_list = [os.path.join(output_dir, 'run_info.json') for output_dir in self.output_list]
+
     def summarize_results(self):
-        pass
+        if len(self.log_list) == 0:
+            return
+
+        summary_list = []
+        for log_file in self.log_list:
+            sample_name = os.path.split(os.path.dirname(x))[1]
+            summary_series = self.parse_log(log_file)
+            summary_series['Sample'] = sample_name
+            summary_list.append(summary_series)
+
+        # output a full result file containing all values from original log
+        result_df = pandas.DataFrame(summary_list)
+        result_df.to_csv('kallisto_quant_complete.txt', sep='\t', index=False)
+
+        # output simplified results too
+        # total reads, uniquely mapped, uniquely mapped %, multi-mapped %, unmapped %
+        simplified_df = result_df.loc[:, ['Sample', 'n_processed', 'n_pseudoaligned',
+                                          'n_unique', 'p_pseudoaligned', 'p_unique']]
+        simplified_df.rename(index=str, columns={'n_processed': 'Total reads',
+                                                 'n_unique': 'Uniquely aligned',
+                                                 'p_unique': 'Unique %',
+                                                 'n_pseudoaligned': 'Pseudoaligned',
+                                                 'p_pseudoaligned': 'Pseudoaligned %'},
+                             inplace=True)
+        simplified_df['Unaligned %'] = 100 - simplified_df['Pseudoaligned %']
+        simplified_df.to_csv('star_alignment_summary.txt', sep='\t', index=False)
+
+        print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Uniquely aligned': '{:,}'.format,
+                                                               'Unique %': '{:.1%}'.format,
+                                                               'Pseudoaligned %': '{:.1%}'.format,
+                                                               'Unaligned %': '{:.1%}'.format}))
 
     @classmethod
     def parse_log(cls, filename):
@@ -606,7 +649,7 @@ class KallistoAligner(ReadAlignmentBase):
         :param filename:
         :return:
         """
-        pass
+        return pandas.read_json(filename, typ='Series')
 
     @classmethod
     def arrange_read_filenames(cls, filename_string):
@@ -618,7 +661,6 @@ class KallistoAligner(ReadAlignmentBase):
         r1, r2 = filename_string.split(' ')
         interleaved_string = ' '.join([' '.join(x) for x in zip(r1.split(','), r2.split(','))])
         return interleaved_string
-
 
 
 def run_aligner(namespace):

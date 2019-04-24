@@ -5,6 +5,7 @@ import shlex
 from atg.util import align
 
 BOWTIE2_LOG = os.path.join(os.path.dirname(__file__), 'data', 'bowtie2_SE.log')
+KALLISTO_LOG = os.path.join(os.path.dirname(__file__), 'data', 'kallisto_run.json')
 
 
 class STARCommandTestCase(unittest.TestCase):
@@ -100,6 +101,12 @@ class KallistoCommandTestCase(unittest.TestCase):
 
         aligner_output = sys.stdout.getvalue().strip()
         self.assertEqual(aligner_output, correct_output)
+
+    def test_log_parsing(self):
+        log_series = align.KallistoAligner.parse_log(KALLISTO_LOG)
+        self.assertEqual(log_series['n_unique'], 16090035)
+        self.assertEqual(log_series['n_processed'], 44891704)
+        self.assertEqual(log_series['n_pseudoaligned'], 36521130)
 
 
 if __name__ == '__main__':
