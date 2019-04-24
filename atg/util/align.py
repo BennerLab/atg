@@ -173,7 +173,8 @@ class ReadAlignmentBase:
                                             suffix='Remaining: %(eta_td)s', max=len(command_list))
             progress_bar.start()
             for command in command_list:
-                subprocess.run(args=shlex.split(command), env=os.environ.copy(), stdout=subprocess.DEVNULL)
+                subprocess.run(args=shlex.split(command), env=os.environ.copy(), stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
                 progress_bar.next()
             progress_bar.finish()
             print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
@@ -614,7 +615,7 @@ class KallistoAligner(ReadAlignmentBase):
 
         summary_list = []
         for log_file in self.log_list:
-            sample_name = os.path.split(os.path.dirname(x))[1]
+            sample_name = os.path.split(os.path.dirname(log_file))[1]
             summary_series = self.parse_log(log_file)
             summary_series['Sample'] = sample_name
             summary_list.append(summary_series)
@@ -637,10 +638,11 @@ class KallistoAligner(ReadAlignmentBase):
         simplified_df.to_csv('star_alignment_summary.txt', sep='\t', index=False)
 
         print(simplified_df.to_string(index=False, formatters={'Total reads': '{:,}'.format,
+                                                               'Pseudoaligned': '{:,}'.format,
                                                                'Uniquely aligned': '{:,}'.format,
-                                                               'Unique %': '{:.1%}'.format,
-                                                               'Pseudoaligned %': '{:.1%}'.format,
-                                                               'Unaligned %': '{:.1%}'.format}))
+                                                               'Unique %': '{:.1f}'.format,
+                                                               'Pseudoaligned %': '{:.1f}'.format,
+                                                               'Unaligned %': '{:.1f}'.format}))
 
     @classmethod
     def parse_log(cls, filename):
