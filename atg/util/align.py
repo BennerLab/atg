@@ -7,6 +7,7 @@ import string
 import progress.bar
 
 # ENHANCEMENT: use functionality from MultiQC for parsing. MultiQC is not currently written to allow convenient access.
+# FEATURE: add bwa mem aligner
 
 DEFAULT_THREADS = max(1, subprocess.os.cpu_count() // 2)
 
@@ -423,8 +424,9 @@ class SalzbergAligner(ReadAlignmentBase):
                     self.log_list.append(log_filename)
                     progress_bar.next()
 
-        progress_bar.finish()
-        print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
+        if not kwargs['check']:
+            progress_bar.finish()
+            print('\nCompleted in %s.\n' % progress_bar.elapsed_td)
 
         return True
 
