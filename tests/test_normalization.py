@@ -3,7 +3,6 @@ import numpy
 import pandas
 import unittest
 import atg.quantification.normalization
-from nose.plugins.attrib import attr
 
 RNASEQ_COUNT_FILE = os.path.join(os.path.dirname(__file__), 'data', 'rnaseq.csv')
 # normalization factors calculated using edgeR's calcNormFactors
