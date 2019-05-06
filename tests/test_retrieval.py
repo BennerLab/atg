@@ -102,14 +102,12 @@ class EnsemblGenomesTest(unittest.TestCase):
                                      'species': 'agaricus_bisporus_var_bisporus_h97'}
 
     def test_ensembl_table_read(self):
-        corn_record = self.ensembl_genomes.ensembl_species_df.ix[self.ensembl_genomes.ensembl_species_df['species'] ==
-                                                                 'zea_mays']
+        corn_record = self.ensembl_genomes.ensembl_species_df.loc[self.ensembl_genomes.ensembl_species_df['species'] ==
+                                                                  'zea_mays']
         self.assertEqual(corn_record.shape[0], 1)
         self.assertEqual(corn_record.iloc[0]['division'], 'EnsemblPlants')
 
     def test_species_information(self):
-
-
         self.assertDictEqual(self.ensembl_genomes.get_species_information('zea_mays'), self.corn_information)
         self.assertDictEqual(self.ensembl_genomes.get_species_information('apis_mellifera'), self.bee_information)
         self.assertDictEqual(self.ensembl_genomes.get_species_information('agaricus_bisporus_var_bisporus_h97'),

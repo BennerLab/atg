@@ -264,7 +264,7 @@ def run_enrichment(namespace):
 
     # for a single filename, read the gene list, assuming no header
     if len(namespace.filename) == 1:
-        input_gene_series = pandas.read_csv(namespace.filename[0]).ix[:, 0]
+        input_gene_series = pandas.read_csv(namespace.filename[0]).iloc[:, 0]
         gene_list = translator.translate_identifiers(input_gene_series, input_type=None, output_type='ensembl')
 
         if namespace.plot:
@@ -278,14 +278,14 @@ def run_enrichment(namespace):
             if namespace.output:
                 enrichment_result.reset_index().to_csv(namespace.output, index=False)
             else:
-                enrichment_result.reset_index().ix[0:TERMINAL_OUTPUT_LINES, ].to_string(sys.stdout, index=False, )
+                enrichment_result.reset_index().iloc[0:TERMINAL_OUTPUT_LINES, ].to_string(sys.stdout, index=False, )
 
     # read each file, using the filename as the gene set name
     else:
         gene_set_dict = {}
         for filename in namespace.filename:
             gene_set_name = os.path.splitext(os.path.basename(filename))[0]
-            input_gene_series = pandas.read_csv(filename).ix[:, 0]
+            input_gene_series = pandas.read_csv(filename).iloc[:, 0]
             gene_list = translator.translate_identifiers(input_gene_series, input_type=None, output_type='ensembl')
             gene_set_dict[gene_set_name] = gene_list
 
@@ -297,7 +297,7 @@ def run_enrichment(namespace):
             if namespace.output:
                 enrichment_result.reset_index().to_csv(namespace.output, index=False)
             else:
-                enrichment_result.reset_index().ix[0:TERMINAL_OUTPUT_LINES, ].to_string(sys.stdout, index=False)
+                enrichment_result.reset_index().iloc[0:TERMINAL_OUTPUT_LINES, ].to_string(sys.stdout, index=False)
 
 
 def setup_subparsers(subparsers):

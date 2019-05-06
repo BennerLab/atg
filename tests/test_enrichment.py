@@ -32,9 +32,9 @@ SAMPLE_ENSEMBL_GENE_LIST3 = ['ENSG00000116288', 'ENSG00000124766', 'ENSG00000071
                              'ENSG00000235941', 'ENSG00000180228', 'ENSG00000224501', 'ENSG00000169877',
                              'ENSG00000151929', 'ENSG00000171209']
 
-GENELIST_LOCATION = os.path.join(os.path.dirname(__file__), 'data', 'genelists')
-HALLMARK_APOPTOSIS = os.path.join(GENELIST_LOCATION, 'HALLMARK_APOPTOSIS.txt')
-HALLMARK_P53_PATHWAY = os.path.join(GENELIST_LOCATION, 'HALLMARK_P53_PATHWAY.txt')
+GENE_LIST_LOCATION = os.path.join(os.path.dirname(__file__), 'data', 'genelists')
+HALLMARK_APOPTOSIS = os.path.join(GENE_LIST_LOCATION, 'HALLMARK_APOPTOSIS.txt')
+HALLMARK_P53_PATHWAY = os.path.join(GENE_LIST_LOCATION, 'HALLMARK_P53_PATHWAY.txt')
 
 
 def test_adjust_pvalue():
@@ -74,13 +74,14 @@ class EnrichmentTest(unittest.TestCase):
         data_tracker.retrieve_data("human", selected_files=['ensembl_gene.csv'])
 
         self.calculator = atg.stats.enrich.EnrichmentCalculator(go_term_path, go_definition_path)
-        self.all_genes = self.calculator.gene_term_df.ix[:, atg.stats.enrich.GENE_COLUMN_LABEL_INDEX].drop_duplicates()
+        self.all_genes = self.calculator.gene_term_df.iloc[:, atg.stats.enrich.GENE_COLUMN_LABEL_INDEX].\
+            drop_duplicates()
 
     def test_single_term(self):
         good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + self.all_genes.sample(100).tolist()
         good_pvalue = self.calculator.get_single_enrichment(good_gene_list, 'GO:0007259')
 
-        better_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:10] + self.all_genes.ix[0:100].tolist()
+        better_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:10] + self.all_genes.iloc[0:100].tolist()
         better_pvalue = self.calculator.get_single_enrichment(better_gene_list, 'GO:0007259')
         self.assertLess(better_pvalue, good_pvalue)
         self.assertLess(good_pvalue, -5.0)
@@ -103,7 +104,7 @@ class EnrichmentTest(unittest.TestCase):
 
     def test_iterative_enrichment(self):
         iterative_result = self.calculator.iterative_enrichment(SAMPLE_ENSEMBL_GENE_LIST + SAMPLE_ENSEMBL_GENE_LIST2 +
-                                                                self.all_genes.ix[0:500].tolist())
+                                                                self.all_genes.loc[0:500].tolist())
         self.assertIn('GO:0007259', iterative_result.index)
         self.assertIn('GO:0000002', iterative_result.index)
 
@@ -130,5 +131,3 @@ class EnrichmentTest(unittest.TestCase):
 
         atg.stats.enrich.run_enrichment(parser.parse_args(['enrich', HALLMARK_APOPTOSIS]))
         atg.stats.enrich.run_enrichment(parser.parse_args(['enrich', HALLMARK_APOPTOSIS, HALLMARK_P53_PATHWAY]))
-
-

@@ -42,11 +42,11 @@ class EnsemblSpecies:
             return {'species': species}
 
         # pull out first matching record
-        ensembl_record = self.ensembl_species_df.ix[self.ensembl_species_df['species'] == species].iloc[0]
-        ensembl_division = ensembl_record.ix['division'].lstrip('Ensembl').lower()
+        ensembl_record = self.ensembl_species_df.loc[self.ensembl_species_df['species'] == species].iloc[0]
+        ensembl_division = ensembl_record.loc['division'].lstrip('Ensembl').lower()
         # could access assembly ID or accession from record, but the Ensembl files don't use one consistently
 
-        ensembl_core_db = ensembl_record.ix['core_db']
+        ensembl_core_db = ensembl_record.loc['core_db']
         if "collection" in ensembl_core_db:
             collection_path = '/' + ensembl_core_db.split('_core_')[0]
         else:
