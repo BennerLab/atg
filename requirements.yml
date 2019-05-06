@@ -6,7 +6,7 @@ dependencies:
 - pybedtools
 - ucsc-bedgraphtobigwig
 - pyyaml
-- nose
+- pytest
 - numpy
 - pandas
 - scipy
