@@ -75,7 +75,7 @@ def tmm_norm_factor(count_df):
 
     sf = y.div(np.exp(np.mean(np.log(y))))
     ref_index = (sf-sf.mean()).abs().idxmin()
-    sf_tmm = count_nonzero.apply(_tmm_norm_factor_single, ref=count_nonzero.ix[:, ref_index])
+    sf_tmm = count_nonzero.apply(_tmm_norm_factor_single, ref=count_nonzero.loc[:, ref_index])
 
     # adjust size factors to multiply to 1
     final_sf_tmm = sf_tmm / np.exp(np.mean(np.log(sf_tmm)))

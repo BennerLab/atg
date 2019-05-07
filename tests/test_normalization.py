@@ -3,7 +3,6 @@ import numpy
 import pandas
 import unittest
 import atg.quantification.normalization
-from nose.plugins.attrib import attr
 
 RNASEQ_COUNT_FILE = os.path.join(os.path.dirname(__file__), 'data', 'rnaseq.csv')
 # normalization factors calculated using edgeR's calcNormFactors
@@ -13,6 +12,7 @@ EDGER_CPM_VCP = [482.7128, 526.3641, 546.3750, 331.7619, 359.4104, 383.8492]
 LIMMA_VOOM_VCP = [8.969148, 9.078111, 9.149407, 8.431966, 8.306551, 8.561956]
 DESEQ2_RLE_VCP = [8992.780, 9696.668, 10353.559, 6477.756, 5843.696, 7006.906]
 DESEQ2_VST_VCP = [13.13792, 13.24640, 13.34077, 12.66596, 12.51785, 12.77889]
+
 
 class CountNormalizationTest(unittest.TestCase):
     def setUp(self):
@@ -24,19 +24,20 @@ class CountNormalizationTest(unittest.TestCase):
 
     def test_tmm_normalization(self):
         normalized_count = atg.quantification.normalization.tmm_normalization(self.read_count_df)
-        numpy.testing.assert_almost_equal(EDGER_TMM_VCP, normalized_count.ix['VCP', :], decimal=4)
+        numpy.testing.assert_almost_equal(EDGER_TMM_VCP, normalized_count.loc['VCP', :], decimal=4)
 
     def test_cpm_normalization(self):
         normalized_count = atg.quantification.normalization.cpm_normalization(self.read_count_df)
-        numpy.testing.assert_almost_equal(EDGER_CPM_VCP, normalized_count.ix['VCP', :], decimal=4)
+        numpy.testing.assert_almost_equal(EDGER_CPM_VCP, normalized_count.loc['VCP', :], decimal=4)
 
     def test_voom_transformation(self):
         transformed_count = atg.quantification.normalization.voom(self.read_count_df)
-        numpy.testing.assert_almost_equal(LIMMA_VOOM_VCP, transformed_count.ix['VCP', :], decimal=3)
+        numpy.testing.assert_almost_equal(LIMMA_VOOM_VCP, transformed_count.loc['VCP', :], decimal=3)
 
     def test_rle_normalization(self):
         transformed_count = atg.quantification.normalization.rle_normalization(self.read_count_df)
-        numpy.testing.assert_almost_equal(DESEQ2_RLE_VCP, transformed_count.ix['VCP', :], decimal=3)
+        numpy.testing.assert_almost_equal(DESEQ2_RLE_VCP, transformed_count.loc['VCP', :], decimal=3)
+
 
 if __name__ == '__main__':
     unittest.main()

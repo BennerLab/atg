@@ -1,22 +1,28 @@
 <component name="ProjectDictionaryState">
   <dictionary name="mchang">
     <words>
+      <w>apoptosis</w>
       <w>autoscale</w>
       <w>benjamini</w>
       <w>biomart</w>
       <w>bowtie</w>
       <w>bunzip</w>
+      <w>capsys</w>
       <w>concordantly</w>
       <w>deduplicated</w>
+      <w>deseq</w>
       <w>ensemblgenomes</w>
+      <w>ensg</w>
       <w>entrez</w>
       <w>fasta</w>
       <w>filenames</w>
       <w>filetype</w>
+      <w>genelists</w>
       <w>gunzip</w>
       <w>hisat</w>
       <w>hochberg</w>
       <w>kallisto</w>
+      <w>limma</w>
       <w>multilist</w>
       <w>multimapped</w>
       <w>pseudoaligned</w>
@@ -28,6 +34,7 @@
       <w>toplevel</w>
       <w>ucsc</w>
       <w>unstranded</w>
+      <w>voom</w>
       <w>yaml</w>
     </words>
   </dictionary>

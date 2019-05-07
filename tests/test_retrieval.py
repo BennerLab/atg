@@ -4,7 +4,6 @@ import tempfile
 import pandas
 import atg.data.retrieve
 import atg.data.ensembl
-from nose.plugins.attrib import attr
 
 UCSC_GZIPPED_FILE = 'http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.agp.gz'
 UCSC_CHROMOSOME_SIZE_FILE = 'http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes'
@@ -13,7 +12,6 @@ UCSC_CHROMOSOME_ENTRIES = 455
 BIOMART_XML_FILE = os.path.join(os.path.dirname(__file__), 'data', 'GRCh38_chrY.xml')
 
 
-@attr(status='disabled')
 class RetrievalTest(unittest.TestCase):
     def test_xml_fetch(self):
         with open(BIOMART_XML_FILE, 'r') as biomart_input:
@@ -46,7 +44,6 @@ class RetrievalTest(unittest.TestCase):
             self.assertEqual(chromosome_df.shape[0], UCSC_CHROMOSOME_ENTRIES)
 
 
-@attr(status='disabled')
 class ATGDataTrackerTest(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -74,7 +71,6 @@ class ATGDataTrackerTest(unittest.TestCase):
         self.temp_dir.cleanup()
 
 
-@attr(status='disabled')
 class EnsemblGenomesTest(unittest.TestCase):
     def setUp(self):
         self.ensembl_genomes = atg.data.ensembl.EnsemblSpecies()
@@ -102,14 +98,12 @@ class EnsemblGenomesTest(unittest.TestCase):
                                      'species': 'agaricus_bisporus_var_bisporus_h97'}
 
     def test_ensembl_table_read(self):
-        corn_record = self.ensembl_genomes.ensembl_species_df.ix[self.ensembl_genomes.ensembl_species_df['species'] ==
-                                                                 'zea_mays']
+        corn_record = self.ensembl_genomes.ensembl_species_df.loc[self.ensembl_genomes.ensembl_species_df['species'] ==
+                                                                  'zea_mays']
         self.assertEqual(corn_record.shape[0], 1)
         self.assertEqual(corn_record.iloc[0]['division'], 'EnsemblPlants')
 
     def test_species_information(self):
-
-
         self.assertDictEqual(self.ensembl_genomes.get_species_information('zea_mays'), self.corn_information)
         self.assertDictEqual(self.ensembl_genomes.get_species_information('apis_mellifera'), self.bee_information)
         self.assertDictEqual(self.ensembl_genomes.get_species_information('agaricus_bisporus_var_bisporus_h97'),
