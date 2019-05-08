@@ -1,4 +1,4 @@
-import unittest
+import pytest
 import os
 import atg.stats.enrich
 import atg.data.retrieve
@@ -55,7 +55,6 @@ def test_adjust_pvalue():
 
 
 def test_enrichment_calculation():
-    # return hypergeom.logsf(term_row['hit_count'], term_row['universe'], term_row['term_count'], term_row['list_size'])
     term_row = {"hit_count": 4,
                 "universe": 18466,
                 "term_count": 44,
@@ -64,8 +63,8 @@ def test_enrichment_calculation():
     numpy.testing.assert_almost_equal(atg.stats.enrich.enrichment_significance(term_row), -3.52925402)
 
 
-class EnrichmentTest(unittest.TestCase):
-    def setUp(self):
+class TestEnrichment:
+    def setup(self):
         data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
         go_term_path = os.path.join(data_root, 'human', 'GRCh38', 'go_biological_process.csv')
         go_definition_path = os.path.join(data_root, 'human', 'GRCh38', 'go_definition.csv')
@@ -83,18 +82,18 @@ class EnrichmentTest(unittest.TestCase):
 
         better_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:10] + self.all_genes.iloc[0:100].tolist()
         better_pvalue = self.calculator.get_single_enrichment(better_gene_list, 'GO:0007259')
-        self.assertLess(better_pvalue, good_pvalue)
-        self.assertLess(good_pvalue, -5.0)
+        assert better_pvalue < good_pvalue
+        assert good_pvalue < -5.0
 
         bad_pvalue = self.calculator.get_single_enrichment(SAMPLE_ENSEMBL_GENE_LIST3, 'GO:0006367')
-        self.assertGreater(bad_pvalue, -5.0)
+        assert bad_pvalue > -5.0
 
     def test_full_enrichment(self):
         good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:5] + self.all_genes.sample(100).tolist()
 
         enrichment_df = self.calculator.get_all_enrichment(good_gene_list)
-        self.assertIn('GO:0007259', enrichment_df.index)
-        self.assertLess(sum(enrichment_df['log_pvalue'] < -5), 100)
+        assert 'GO:0007259' in enrichment_df.index
+        assert sum(enrichment_df['log_pvalue'] < -5) < 100
 
     def test_plot(self):
         good_gene_list = SAMPLE_ENSEMBL_GENE_LIST[0:15] + SAMPLE_ENSEMBL_GENE_LIST2
@@ -105,19 +104,20 @@ class EnrichmentTest(unittest.TestCase):
     def test_iterative_enrichment(self):
         iterative_result = self.calculator.iterative_enrichment(SAMPLE_ENSEMBL_GENE_LIST + SAMPLE_ENSEMBL_GENE_LIST2 +
                                                                 self.all_genes.loc[0:500].tolist())
-        self.assertIn('GO:0007259', iterative_result.index)
-        self.assertIn('GO:0000002', iterative_result.index)
+        assert 'GO:0007259' in iterative_result.index
+        assert 'GO:0000002' in iterative_result.index
 
     def test_iterative_enrichment_multilist(self):
         multi_gene_list = {'A': SAMPLE_ENSEMBL_GENE_LIST, 'B': SAMPLE_ENSEMBL_GENE_LIST2,
                            'C': SAMPLE_ENSEMBL_GENE_LIST3}
         multi_enrichment_result = self.calculator.iterative_enrichment_multilist(multi_gene_list)
-        self.assertTrue(multi_enrichment_result.index.equals(pandas.Index(['GO:0007259', 'GO:0050821', 'GO:0000002'])))
+        assert multi_enrichment_result.index.equals(pandas.Index(['GO:0007259', 'GO:0050821', 'GO:0000002']))
 
     def test_plot_multiple_enrichment(self):
         multi_gene_list = {'A': SAMPLE_ENSEMBL_GENE_LIST, 'B': SAMPLE_ENSEMBL_GENE_LIST2,
                            'C': SAMPLE_ENSEMBL_GENE_LIST3}
         self.calculator.plot_enrichment_multiple(multi_gene_list, output_filename="/tmp/multi.pdf")
+        assert True
 
     def test_namespace_run(self):
         parser = argparse.ArgumentParser()
@@ -126,7 +126,7 @@ class EnrichmentTest(unittest.TestCase):
 
         bad_species_command = shlex.split('enrich test.txt -s robot')
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             atg.stats.enrich.run_enrichment(parser.parse_args(bad_species_command))
 
         atg.stats.enrich.run_enrichment(parser.parse_args(['enrich', HALLMARK_APOPTOSIS]))

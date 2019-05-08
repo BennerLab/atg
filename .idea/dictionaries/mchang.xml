@@ -1,10 +1,15 @@
 <component name="ProjectDictionaryState">
   <dictionary name="mchang">
     <words>
+      <w>agabi</w>
+      <w>agaricus</w>
+      <w>apis</w>
       <w>apoptosis</w>
       <w>autoscale</w>
+      <w>basidiomycota</w>
       <w>benjamini</w>
       <w>biomart</w>
+      <w>bisporus</w>
       <w>bowtie</w>
       <w>bunzip</w>
       <w>capsys</w>
@@ -23,6 +28,8 @@
       <w>hochberg</w>
       <w>kallisto</w>
       <w>limma</w>
+      <w>mellifera</w>
+      <w>metazoa</w>
       <w>multilist</w>
       <w>multimapped</w>
       <w>pseudoaligned</w>
@@ -30,10 +37,12 @@
       <w>quant</w>
       <w>rnaseq</w>
       <w>samtools</w>
+      <w>sapiens</w>
       <w>subparser</w>
       <w>toplevel</w>
       <w>ucsc</w>
       <w>unstranded</w>
+      <w>varbis</w>
       <w>voom</w>
       <w>yaml</w>
     </words>
