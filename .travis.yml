@@ -20,4 +20,7 @@ install:
   - source activate atg
   - conda list
 
+before_script:
+  - cp ATGConfig.txt.template ATGConfig.txt
+
 script: python -m pytest --collect-only
