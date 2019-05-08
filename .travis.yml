@@ -15,7 +15,6 @@ install:
   - conda info -a
   - conda env create -q --file requirements.yml
   - source activate atg
-  - conda install -q -y pytest-xdist
   - conda list
 
 before_script:
@@ -31,5 +30,5 @@ before_script:
   - wget -O ~/ATGData/human/GRCh38/ensembl_gene.csv http://homer.ucsd.edu/mchang/ATGData/human/GRCh38/ensembl_gene.csv
   - wget -O ~/ATGData/mouse/GRCm38/ensembl_gene.csv http://homer.ucsd.edu/mchang/ATGData/mouse/GRCm38/ensembl_gene.csv
 
-script: python -m pytest -n 2 -k 'not retrieval'
+script: python -m pytest -k 'not retrieval'
 
