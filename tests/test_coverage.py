@@ -1,5 +1,4 @@
 import os
-import unittest
 import tempfile
 import csv
 
@@ -11,12 +10,13 @@ UNSTRANDED_SE_RNASEQ_FILE = os.path.join(os.path.dirname(__file__), 'data', 'rna
 STRANDED_PE_RNASEQ_FILE = os.path.join(os.path.dirname(__file__), 'data', 'rnaseq.bam')
 CHROM_SIZES_HG38 = os.path.join(os.path.dirname(__file__), 'data', 'hg38_chrom.sizes')
 
-class UnstrandedCoverageCalculatorTest(unittest.TestCase):
-    def setUp(self):
+
+class TestUnstrandedCoverageCalculator:
+    def setup(self):
         self.coverage_calculator = coverage.UnstrandedCoverageCalculator(UNSTRANDED_SE_RNASEQ_FILE)
 
     def test_read_count(self):
-        self.assertEqual(self.coverage_calculator.mapped_read_count, 1224)
+        assert self.coverage_calculator.mapped_read_count == 1224
 
     def test_bedgraph(self):
         """
@@ -28,8 +28,8 @@ class UnstrandedCoverageCalculatorTest(unittest.TestCase):
             self.coverage_calculator.write_bedgraph(forward_filename)
 
             for entry in csv.reader(open(forward_filename), delimiter='\t'):
-                self.assertEqual(entry[0], 'chr11')
-                self.assertGreater(float(entry[3]), 0)
+                assert entry[0] == 'chr11'
+                assert float(entry[3]) > 0
 
     def test_bigwig_with_genome(self):
         """
@@ -40,7 +40,7 @@ class UnstrandedCoverageCalculatorTest(unittest.TestCase):
             forward_filename = os.path.join(working_directory, "forward.bigwig")
             self.coverage_calculator.write_bigwig(forward_filename, 'hg38')
 
-            os.path.exists(forward_filename)
+            assert os.path.exists(forward_filename)
 
     def test_bigwig_with_chrom_sizes(self):
         """
@@ -51,18 +51,18 @@ class UnstrandedCoverageCalculatorTest(unittest.TestCase):
             forward_filename = os.path.join(working_directory, "forward.bigwig")
             self.coverage_calculator.write_bigwig(forward_filename, chrom_sizes=CHROM_SIZES_HG38)
 
-            os.path.exists(forward_filename)
+            assert os.path.exists(forward_filename)
 
 
-class StrandedCoverageCalculatorTest(unittest.TestCase):
-    def setUp(self):
+class TestStrandedCoverageCalculator:
+    def setup(self):
         self.coverage_calculator = coverage.StrandedCoverageCalculator(STRANDED_PE_RNASEQ_FILE)
 
     def test_read_count(self):
         """
         test file contains 198 uniquely mapped R1 reads
         """
-        self.assertEqual(self.coverage_calculator.mapped_read_count, 196)
+        assert self.coverage_calculator.mapped_read_count == 196
 
     def test_bedgraph(self):
         """
@@ -75,12 +75,12 @@ class StrandedCoverageCalculatorTest(unittest.TestCase):
             self.coverage_calculator.write_bedgraph(forward_filename, reverse_filename, use_multiprocessing=True)
 
             for entry in csv.reader(open(forward_filename), delimiter='\t'):
-                self.assertEqual(entry[0], 'chr11')
-                self.assertGreater(float(entry[3]), 0)
+                assert entry[0] == 'chr11'
+                assert float(entry[3]) > 0
 
             for entry in csv.reader(open(reverse_filename), delimiter='\t'):
-                self.assertEqual(entry[0], 'chr11')
-                self.assertLess(float(entry[3]), 0)
+                assert entry[0] == 'chr11'
+                assert float(entry[3]) < 0
 
     def test_bigwig_with_genome(self):
         """
@@ -92,8 +92,8 @@ class StrandedCoverageCalculatorTest(unittest.TestCase):
             reverse_filename = os.path.join(working_directory, "reverse.bigwig")
             self.coverage_calculator.write_bigwig(forward_filename, reverse_filename, 'hg38')
 
-            os.path.exists(forward_filename)
-            os.path.exists(reverse_filename)
+            assert os.path.exists(forward_filename)
+            assert os.path.exists(reverse_filename)
 
     def test_bigwig_with_chrom_sizes(self):
         """
@@ -105,5 +105,5 @@ class StrandedCoverageCalculatorTest(unittest.TestCase):
             reverse_filename = os.path.join(working_directory, "reverse.bigwig")
             self.coverage_calculator.write_bigwig(forward_filename, reverse_filename, chrom_sizes=CHROM_SIZES_HG38)
 
-            os.path.exists(forward_filename)
-            os.path.exists(reverse_filename)
+            assert os.path.exists(forward_filename)
+            assert os.path.exists(reverse_filename)
