@@ -25,7 +25,6 @@ GENOME_FILES = [
     'go_definition.csv',                # information for all GO terms
     'ensembl_gene.csv',                 # Ensembl gene information
     'ensembl_gene_homology_human.csv',  # Homology information with Human
-    'ensembl_gene_transcript.csv',      # Ensembl gene <-> transcript ID
     'ensembl_transcript.csv'            # Ensembl transcript information
     # TODO: get APPRIS transcript annotation from BioMart (canonical transcript info)
     # TODO: get NCBI ID (Entrez Gene ID) for translation

@@ -51,8 +51,6 @@ def get_tss_bed6(organism_common_name, level="transcript"):
 
     transcript_annotation_path = os.path.join(genome_path[organism_common_name], 'ensembl_transcript.csv')
     transcript_df = pandas.read_csv(transcript_annotation_path)
-    transcript_df = transcript_df.loc[:, ['Chromosome/scaffold name', 'Transcription start site (TSS)',
-                                          'Strand', 'Transcript stable ID', 'Transcript type']]
     transcript_df.replace({'Strand': {-1: '-', 1: '+'}}, inplace=True)
     transcript_df.rename(index=str, columns={'Chromosome/scaffold name': 'chrom',
                                              'Strand': 'strand'}, inplace=True)
@@ -68,18 +66,12 @@ def get_tss_bed6(organism_common_name, level="transcript"):
                                           name=transcript_df['Transcript stable ID'])
 
     # assign gene/symbol if specified
-    if level == 'gene' or level == 'symbol':
-        ensembl_gene_transcript_path = os.path.join(genome_path[organism_common_name],
-                                                    'ensembl_gene_transcript.csv')
-        gene_to_transcript_df = pandas.read_csv(ensembl_gene_transcript_path)
-        transcript_bed = transcript_bed.merge(gene_to_transcript_df)
-
-        if level == 'symbol':
-            gene_df = get_gene_bed6(organism_common_name)
-            transcript_bed = transcript_bed.merge(gene_df.loc[:, ['Gene stable ID', 'Gene name']])
-            transcript_bed = transcript_bed.assign(name=transcript_bed['Gene name'])
-        else:
-            transcript_bed = transcript_bed.assign(name=transcript_bed['Gene stable ID'])
+    if level == 'symbol':
+        gene_df = get_gene_bed6(organism_common_name)
+        transcript_bed = transcript_bed.merge(gene_df.loc[:, ['Gene stable ID', 'Gene name']])
+        transcript_bed = transcript_bed.assign(name=transcript_bed['Gene name'])
+    elif level == 'gene':
+        transcript_bed = transcript_bed.assign(name=transcript_bed['Gene stable ID'])
 
     # remove redundancy
     transcript_bed = (transcript_bed.loc[:, ['chrom', 'start', 'end', 'score', 'name', 'strand', 'Transcript type']]
