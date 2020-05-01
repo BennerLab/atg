@@ -15,7 +15,7 @@ import atg.config
 import atg.data
 import atg.data.ontology
 
-ENSEMBL_PERMANENT_SITE = 'Apr2019.archive.ensembl.org'
+ENSEMBL_PERMANENT_SITE = 'Apr2020.archive.ensembl.org'
 DATA_SOURCE_PATH = os.path.join(os.path.dirname(__file__), 'data_sources.ini')
 GENOME_FILES = [
     'chrom.sizes',                      # UCSC chromosome sizes
