@@ -662,7 +662,7 @@ class KallistoAligner(ReadAlignmentBase):
         :param filename:
         :return:
         """
-        return pandas.read_json(filename, typ='Series')
+        return pandas.read_json(filename, typ='Series', convert_dates=False)
 
     @classmethod
     def arrange_read_filenames(cls, filename_string):
