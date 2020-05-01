@@ -8,6 +8,7 @@
       <w>autoscale</w>
       <w>basidiomycota</w>
       <w>benjamini</w>
+      <w>bioconductor</w>
       <w>biomart</w>
       <w>bisporus</w>
       <w>bowtie</w>
@@ -32,6 +33,7 @@
       <w>metazoa</w>
       <w>multilist</w>
       <w>multimapped</w>
+      <w>panu</w>
       <w>pseudoaligned</w>
       <w>pvalue</w>
       <w>quant</w>
@@ -39,6 +41,7 @@
       <w>samtools</w>
       <w>sapiens</w>
       <w>subparser</w>
+      <w>taxon</w>
       <w>toplevel</w>
       <w>ucsc</w>
       <w>unstranded</w>
