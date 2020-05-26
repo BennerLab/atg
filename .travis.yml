@@ -3,11 +3,11 @@ jobs:
   include:
     - os: linux
       dist: bionic
+      python: 3.7
     - os: osx
+      python: 3.6
 services:
   - xvfb
-python:
-  - "3.7"
 install:
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
