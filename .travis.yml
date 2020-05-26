@@ -1,8 +1,11 @@
 language: python
-dist: bionic
+jobs:
+  include:
+    - os: linux
+      dist: bionic
+    - os: osx
 services:
   - xvfb
-sudo: false
 python:
   - "3.7"
 install:
