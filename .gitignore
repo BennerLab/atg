@@ -95,5 +95,4 @@ ATGConfig.txt
 .idea/modules.xml
 .idea/vcs.xml
 *.fastq.gz
-tests/data/H5N1_VN
-data/
+tests/data/
