@@ -32,7 +32,7 @@ def group_files_from_sample_sheet(sample_sheet, force_pair=False):
         r2_samples = []
 
         for filename in sorted(list(file_list.file)):
-            if "R2" in filename or "mate2" in filename:
+            if "_R2" in filename or "mate2" in filename:
                 r2_samples.append(filename)
             elif force_pair and os.path.basename(filename).split(os.path.extsep)[0].endswith('_2'):
                 r2_samples.append(filename)
@@ -63,7 +63,7 @@ def group_files_from_list(read_list, delimiter, force_pair=False):
         r1_samples = []
         r2_samples = []
         for sample in sorted(grouped_samples):
-            if 'R2' in sample or 'mate2' in sample:
+            if '_R2' in sample or 'mate2' in sample:
                 r2_samples.append(sample)
             elif force_pair and os.path.basename(sample).split(os.path.extsep)[0].endswith('_2'):
                 r2_samples.append(sample)
@@ -157,7 +157,7 @@ class ReadAlignmentBase:
         1. grouping read files into a dictionary of samples
         2. generating a list of commands to be run
         3. executing the commands via subprocess
-        
+
         :return:
         """
 
