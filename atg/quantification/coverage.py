@@ -1,6 +1,5 @@
 import os
 import subprocess
-import multiprocessing
 import tempfile
 import shlex
 import pysam
@@ -213,14 +212,12 @@ class StrandedCoverageCalculator(UnstrandedCoverageCalculator):
         forward_strand.close()
         reverse_strand.close()
 
-    def write_bedgraph(self, forward_output=None, reverse_output=None, use_multiprocessing=False, scale=True,
-                       all_positions=False):
+    def write_bedgraph(self, forward_output=None, reverse_output=None, scale=True, all_positions=False):
         """
 
         :return:
         :param forward_output:
         :param reverse_output:
-        :param use_multiprocessing:
         :param scale:
         :param all_positions:
         :return:
@@ -234,11 +231,7 @@ class StrandedCoverageCalculator(UnstrandedCoverageCalculator):
         task_list = [(self.forward_strand_filename, scale_factor, all_positions),
                      (self.reverse_strand_filename, -scale_factor, all_positions)]
 
-        if use_multiprocessing:
-            with multiprocessing.Pool() as pool:
-                bedgraph_forward, bedgraph_reverse = pool.starmap(get_genome_coverage, task_list)
-        else:
-            bedgraph_forward, bedgraph_reverse = [get_genome_coverage(*i) for i in task_list]
+        bedgraph_forward, bedgraph_reverse = [get_genome_coverage(*i) for i in task_list]
 
         if forward_output:
             bedgraph_forward.moveto(forward_output)
@@ -321,4 +314,3 @@ def setup_subparsers(subparsers):
                                                                           "(i.e., positions without coverage).")
 
     coverage_parser.set_defaults(func=generate_bedgraph)
-
