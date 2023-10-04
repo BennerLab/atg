@@ -24,8 +24,8 @@ def process_ontology(gene_term_file, ontology_file='http://purl.obolibrary.org/o
         if not term:
             continue
 
-        if term.other.get('namespace')[0] == 'biological_process':
-            complete_term_list = [term_id] + term.rchildren().id
+        if term.namespace == 'biological_process':
+            complete_term_list = [x.id for x in term.subclasses()]
             complete_gene_df = gene_term_df.loc[gene_term_df.iloc[:, 1].isin(complete_term_list)].copy()
             complete_gene_df.iloc[:, 1] = term_id
             df_list.append(complete_gene_df.drop_duplicates())
