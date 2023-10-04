@@ -116,7 +116,8 @@ def test_ensembl_genomes_species_information(ensembl_genomes, organism, organism
 def test_ensembl_genomes_collect_species(ensembl_genomes):
     species_df = pandas.DataFrame.from_records([organism_information['apis_mellifera'],
                                                 organism_information['zea_mays'],
-                                                organism_information['agaricus_bisporus_var_bisporus_h97']])
+                                                organism_information['agaricus_bisporus_var_bisporus_h97']],
+                                               columns=['species', 'genome', 'annotation', 'version'])
     species_list = ['apis_mellifera', 'zea_mays', 'agaricus_bisporus_var_bisporus_h97']
     assert species_df.equals(ensembl_genomes.collect_species_information(species_list))
 
