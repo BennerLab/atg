@@ -12,7 +12,7 @@ CHROM_SIZES_HG38 = os.path.join(os.path.dirname(__file__), 'data', 'hg38_chrom.s
 
 
 class TestUnstrandedCoverageCalculator:
-    def setup(self):
+    def setup_method(self):
         self.coverage_calculator = coverage.UnstrandedCoverageCalculator(UNSTRANDED_SE_RNASEQ_FILE)
 
     def test_read_count(self):
@@ -55,7 +55,7 @@ class TestUnstrandedCoverageCalculator:
 
 
 class TestStrandedCoverageCalculator:
-    def setup(self):
+    def setup_method(self):
         self.coverage_calculator = coverage.StrandedCoverageCalculator(STRANDED_PE_RNASEQ_FILE)
 
     def test_read_count(self):
@@ -72,7 +72,7 @@ class TestStrandedCoverageCalculator:
         with tempfile.TemporaryDirectory() as working_directory:
             forward_filename = os.path.join(working_directory, "forward.bedgraph")
             reverse_filename = os.path.join(working_directory, "reverse.bedgraph")
-            self.coverage_calculator.write_bedgraph(forward_filename, reverse_filename, use_multiprocessing=True)
+            self.coverage_calculator.write_bedgraph(forward_filename, reverse_filename)
 
             for entry in csv.reader(open(forward_filename), delimiter='\t'):
                 assert entry[0] == 'chr11'

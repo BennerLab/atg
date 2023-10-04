@@ -64,7 +64,7 @@ def test_enrichment_calculation():
 
 
 class TestEnrichment:
-    def setup(self):
+    def setup_method(self):
         data_root = os.path.expanduser(atg.config.settings['Data']['Root'])
         go_term_path = os.path.join(data_root, 'human', 'GRCh38', 'go_biological_process.csv')
         go_definition_path = os.path.join(data_root, 'human', 'GRCh38', 'go_definition.csv')

@@ -14,7 +14,7 @@ DESEQ2_VST_VCP = [13.13792, 13.24640, 13.34077, 12.66596, 12.51785, 12.77889]
 
 
 class TestCountNormalization:
-    def setup(self):
+    def setup_method(self):
         self.read_count_df = pandas.read_csv(RNASEQ_COUNT_FILE, index_col=0)
 
     def test_tmm_normalization_factors(self):

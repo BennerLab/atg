@@ -147,8 +147,11 @@ class EnrichmentCalculator:
         
         sns.set(style='whitegrid')
         plt.figure()
-        plot = sns.stripplot(x='display_log_pvalue', y=self.term_definition.columns[GO_DEFINITION_TERM_INDEX],
-                             data=annotated_enrichment_df, orient='h', edgecolor='gray', palette="Reds_r")
+        plot = sns.stripplot(x='display_log_pvalue',
+                             y=self.term_definition.columns[GO_DEFINITION_TERM_INDEX],
+                             hue=self.term_definition.columns[GO_DEFINITION_TERM_INDEX],
+                             data=annotated_enrichment_df, orient='h', edgecolor='auto', palette="Reds_r",
+                             legend=False)
         plot.set_xlabel(r'$-log_{10}(p)$')
         plot.set_ylabel('')
         plot.xaxis.grid(False)

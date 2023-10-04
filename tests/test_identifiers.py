@@ -18,7 +18,7 @@ mouse_ensembl_first = pandas.Series(['ENSMUSG00000071005', 'ENSMUSG00000027199']
 
 
 class TestIDConversion:
-    def setup(self):
+    def setup_method(self):
         # make sure that relevant files are available
         data_tracker = atg.data.retrieve.ATGDataTracker()
         data_tracker.retrieve_data("human", selected_files=['ensembl_gene.csv'])
